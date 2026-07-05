@@ -3,28 +3,25 @@ import math
 import pandas as pd
 import os
 import pyotp
+import requests
 from fyers_apiv3 import fyersModel
 
-# गिटहब लॉकरमधून (Secrets) क्रेडेंशियल्स सुरक्षितपणे वाचणे
+# १. गिटहब लॉकरमधून (Secrets) क्रेडेंशियल्स सुरक्षितपणे वाचणे
 client_id = "RAE54K69M5-100" 
 secret_key = os.environ.get('FY_SECRET_KEY')
 fy_username = os.environ.get('FY_USER_ID')
 fy_pin = os.environ.get('FY_PIN')
 totp_key = os.environ.get('FY_TOTP_KEY')
 
-def get_auto_access_token():
+def get_fyers_auto_token():
     print("● पायरी १: ऑटो-टोकन जनरेशन प्रक्रिया सुरू होत आहे...")
     try:
-        if not totp_key:
-            print("❌ एरर: गिटहब सेटींग्समध्ये 'FY_TOTP_KEY' सापडला नाही!")
-            return None
-            
         # गुगल ऑथेंटिकेटरचा ६ आकडी लाईव्ह OTP जनरेट करणे
         totp = pyotp.TOTP(totp_key.replace(" ", ""))
         token_otp = totp.now()
         print(f"● पायरी २: TOTP OTP ({token_otp}) यशस्वीरीत्या जनरेट झाला.")
         
-        # FYERS Session मॉडेल तयार करणे
+        # FYERS v3 च्या अधिकृत प्रक्रियेनुसार बॅकएंड लॉगिनसाठी डेटा सबमिट करणे
         session = fyersModel.SessionModel(
             client_id=client_id,
             secret_key=secret_key,
@@ -33,19 +30,40 @@ def get_auto_access_token():
             grant_type="authorization_code"
         )
         
-        print("● पायरी ३: FYERS सर्व्हरशी संपर्क जोडला जात आहे...")
-        return "SUCCESS_TOKEN_GENERATED"
+        # १. पहिल्या पायरीवर FYERS च्या सर्व्हरला OTP आणि PIN पाठवून ऑथेंटिकेशन कोड मागवणे
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        login_payload = {"fy_username": fy_username, "totp": token_otp, "pin": fy_pin, "appId": client_id.split("-")[0]}
+        
+        # FYERS च्या अंतर्गत ऑथेंटिकेशन बॅकएंडला रिक्वेस्ट पाठवणे
+        auth_res = requests.post("https://fyers.in", json=login_payload, headers=headers).json()
+        
+        if auth_res.get('s') != 'ok':
+            print(f"❌ FYERS ऑथेंटिकेशन फेल: {auth_res.get('message')}")
+            return None
+            
+        # २. ऑथेंटिकेशन यशस्वी झाल्यावर मिळालेला कोड वापरून फायनल Access Token मिळवणे
+        auth_code = auth_res.get('code')
+        session.set_token(auth_code)
+        response = session.generate_token()
+        
+        final_token = response.get('access_token')
+        if final_token:
+            print("● पायरी ३: FYERS कडून नवीन Access Token यशस्वीरीत्या मिळाला!")
+            return final_token
+        else:
+            print("❌ सर्व्हरने टोकन दिले नाही:", response)
+            return None
+            
     except Exception as e:
-        print(f"❌ ऑटो-टोकन जनरेशन फेल झाले: {e}")
+        print(f"❌ ऑटो-टोकन जनरेशन अपवाद (Exception): {e}")
         return None
 
-# मॅन्युअल टोकन बाद केले आहे
-access_token = "EXPIRED_TOKEN_FOR_TESTING"
+# --- ऑटो-टोकन मिळवणे ---
+access_token = get_fyers_auto_token()
 
-# ऑटो-टोकन जनरेशन ट्रिगर करणे
-token_fetched = get_auto_access_token()
-if token_fetched:
-    access_token = token_fetched
+if not access_token:
+    print("⚠️ ऑटो-टोकन फेल झाले, बॅकअप टोकन वापरण्याचा प्रयत्न करत आहे...")
+    access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." # बॅकअप
 
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
 
@@ -81,7 +99,7 @@ def get_index_weekly_html(symbol, expiry_day, title):
                 rows += f"<tr><td>{exp_dt} ({day_lbl})</td><td data-val='{row['Close']}'>{row['Close']:,.2f}</td><td style='{c_style}'>{row['Weekly Change Raw']:+.2f}%</td></tr>"
             return f"<h3>{title}</h3><table><thead><tr><th>तारीख</th><th>क्लोज प्राईस</th><th>बदल %</th></tr></thead><tbody>{rows}</tbody></table>"
         else:
-            return f"<div style='color:red; padding:10px;'>❌ {title} Error: FYERS API ने कोड {res.get('code') if res else 'No Response'} दिला. (ऑटो-टोकन चाचणी सुरू आहे)</div>"
+            return f"<div style='color:red; padding:10px;'>❌ {title} Error: FYERS API ने कोड {res.get('code') if res else 'No Response'} दिला. मेसेज: {res.get('message') if res else ''}</div>"
     except Exception as e: 
         return f"<div style='color:red; padding:10px;'>❌ {title} Exception: {str(e)}</div>"
 
@@ -115,5 +133,6 @@ full_template = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Live
 <style>body {{ font-family: sans-serif; background-color: #f4f6f9; padding: 20px; }} .container {{ max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; }} h2, h3 {{ text-align: center; color: #0056b3; }} table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; }} th, td {{ padding: 12px; border: 1px solid #dee2e6; text-align: center; }} th {{ background-color: #007bff; color: white; }} tr:nth-child(even) {{ background-color: #f8f9fa; }}</style></head><body><div class="container"><h2>📊 LIVE OPTIONS & EXPIRES MASTER DASHBOARD</h2>{nifty_html}{sensex_html}{options_html}</div></body></html>"""
 
 os.makedirs("docs", exist_ok=True)
-with open("docs/index.html", "w", encoding="utf-8") as f: f.write(full_template)
+with open("docs/index.html", "w", encoding="utf-8") as f: 
+    f.write(full_template)
 print("Dashboard updated successfully!")
