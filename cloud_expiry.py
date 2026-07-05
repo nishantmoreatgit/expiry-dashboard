@@ -2,80 +2,50 @@ import datetime
 import math
 import pandas as pd
 import os
-import pyotp
-import requests
 from fyers_apiv3 import fyersModel
 
-# १. गिटहब लॉकरमधून (Secrets) क्रेडेंशियल्स सुरक्षितपणे वाचणे
+# १. तुमचे क्रेडेंशियल्स सुरक्षितपणे वाचणे
 client_id = "RAE54K69M5-100" 
 secret_key = os.environ.get('FY_SECRET_KEY')
-fy_username = os.environ.get('FY_USER_ID')
-fy_pin = os.environ.get('FY_PIN')
-totp_key = os.environ.get('FY_TOTP_KEY')
 
-def get_fyers_auto_token_v3():
-    print("● पायरी १: ऑफिशियल ऑटो-टोकन प्रक्रिया सुरू होत आहे...")
+# गिटहब लॉकरमधून तुमचा परमनंट रिफ्रेश टोकन वाचणे
+refresh_token = os.environ.get('FY_REFRESH_TOKEN')
+
+def generate_access_token_from_refresh():
+    print("● पायरी १: रिफ्रेश टोकनद्वारे नवीन ॲक्सेस टोकन जनरेट केले जात आहे...")
+    if not refresh_token:
+        print("⚠️ वॉर्निंग: गिटहब सेटींग्समध्ये 'FY_REFRESH_TOKEN' सापडला नाही.")
+        return None
     try:
-        # गुगल ऑथेंटिकेटरचा ६ आकडी लाईव्ह OTP जनरेट करणे
-        totp = pyotp.TOTP(totp_key.replace(" ", ""))
-        token_otp = totp.now()
-        print(f"● पायरी २: TOTP OTP ({token_otp}) यशस्वीरीत्या जनरेट झाला.")
+        session = fyersModel.SessionModel(
+            client_id=client_id,
+            secret_key=secret_key,
+            redirect_uri="https://fyers.in",
+            response_type="set_refresh_token",
+            grant_type="refresh_token"
+        )
+        # रिफ्रेश टोकन वापरून नवीन लाइव्ह ॲक्सेस टोकन मिळवणे
+        session.set_token(refresh_token)
+        response = session.generate_token()
         
-        # FYERS v3 च्या बॅकएंड नियमांनुसार लॉगिन हेडर आणि डेटा पॅकेज
-        headers = {
-            "Accept": "application/json", 
-            "Content-Type": "application/json"
-        }
-        
-        # स्वतंत्र बॅकएंड ऑथेंटिकेशन सर्व्हर कॉलिंग
-        login_payload = {
-            "fy_username": fy_username, 
-            "totp": token_otp, 
-            "pin": fy_pin, 
-            "appId": client_id.split("-")[0] # केवळ मूळ ॲप आयडी काढणे
-        }
-        
-        # मुख्य ऑथेंटिकेशन API रिक्वेस्ट
-        res = requests.post("https://fyers.in", json=login_payload, headers=headers)
-        
-        # जर रिस्पॉन्स मिळाला तरच JSON मध्ये कन्व्हर्ट करा
-        if res.status_code == 200:
-            auth_res = res.json()
-            if auth_res.get('s') == 'ok':
-                auth_code = auth_res.get('code')
-                
-                # मिळालेला कोड वापरून फायनल Access Token मिळवणे
-                session = fyersModel.SessionModel(
-                    client_id=client_id,
-                    secret_key=secret_key,
-                    redirect_uri="https://fyers.in",
-                    response_type="code",
-                    grant_type="authorization_code"
-                )
-                session.set_token(auth_code)
-                response = session.generate_token()
-                
-                final_token = response.get('access_token')
-                if final_token:
-                    print("● पायरी ३: FYERS कडून नवीन Access Token यशस्वीरीत्या मिळाला!")
-                    return final_token
-            else:
-                print(f"❌ FYERS रिस्पॉन्स एरर मेसेज: {auth_res.get('message')}")
+        final_token = response.get('access_token')
+        if final_token:
+            print("● पायरी २: FYERS कडून आजचे नवीन Access Token यशस्वीरीत्या जनरेट झाले!")
+            return final_token
         else:
-            print(f"⚠️ सर्व्हर स्टेटस कोड एरर: {res.status_code}. (अकाउंट टाईप किंवा क्रेडेंशियल्स तपासा)")
-            
-        return None
+            print("❌ सर्व्हरने नवीन टोकन दिले नाही:", response)
+            return None
     except Exception as e:
-        print(f"❌ ऑटो-टोकन जनरेशन अपवाद (Exception): {e}")
+        print(f"❌ टोकन जनरेशन फेल झाले: {e}")
         return None
 
-# --- ऑटो-टोकन जनरेशन प्रक्रिया ट्रिगर करणे ---
-access_token = get_fyers_auto_token_v3()
+# --- ऑटोमॅटिक ॲक्सेस टोकन मिळवणे ---
+access_token = generate_access_token_from_refresh()
 
+# जर रिफ्रेश टोकन अजून सेट नसेल, तर खालील चालू मॅन्युअल टोकन बॅकअप म्हणून काम करेल (उद्यापर्यंत)
 if not access_token:
-    print("⚠️ ऑटो-टोकन फेल झाले, डेटा फेचिंगसाठी बॅकअप टोकन चालू ठेवत आहे...")
-    # हा बॅकअप टोकन उद्या एक्सपायर होईल, त्यामुळे वरील ऑटो-लॉगिन यशस्वी होणे गरजेचे आहे
-    access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiZDoxIiwiZDoyIiwieDowliwieDoxIiwieDoyI10sImF0X2hhc2gi0iJnQUFBQUFCcVNVUjJHV1BFRTdhU2RuOV9ESXpQV1dSaXljSmE5ZnVsV3dud1luZzVCYkZMZmRCNmFOeGM0cG1oX0tNbVk0dlZtYzdWNVVfYmNXS0d1WTZMeGc0Q0UwaUw2LWVJdzduQlpURS1iSnZfcmEwWklaRT0iLCJkaXNwbGF5X25hbWUiOiIiLCJvbXMiOiJLMSIsImhzbV9rZXkiOiIxNTU0YzUxMDE4YTIzOTFjNjFiNTU0NTM3MGM5MDNkMWJjYmQ3MzBkODQ1YzBiYWJmYmY4MGQ3NyIsImlzRGRwaUVuYWJsZWQiOiJOIiwiaXNNdGZFbmFibGVkIjoiTiIsImZ5X2lkIjoiRk4xMDY1IiwiYXBwVHlwZSI6MTAwLCJleHAiOjE3ODMyMTE0MDASImF0IjoxNzgzMTg2NTUwLCJzdWIiOiJhY2Nlc3NfdG9rZW4ifQ.pp7d8h61Y1TYC-48518ptstpZ7n4AwPzhZZz9dNsg8c"
+    print("⚠️ ऑटो-टोकन उपलब्ध नाही, बॅकअप टोकन चालू ठेवत आहे...")
+    access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiZDoxIiwiZDoyIiwieDowliwieDoxIiwieDoyI10sImF0X2hhc2gi0iJnQUFBQUFCcVNVUjJHV1BFRTdhU2RuOV9ESXpQV1dSaXljSmE5ZnVsV3dud1luZzVCYkZMZmRCNmFOeGM0cG1oX0tNbVk0dlZtYzdWNVVfYmNXS0d1WTZMeGc0Q0UwaUw2LWVJdzduQlpURS1iSnZfcmEwWklaRT0iLCJkaXNwbGF5X25hbWUiOiIiLCJvbXMiOiJLMSIsImhzbV9rZXkiOiIxNTU0YzUxMDE4YTIzOTFjNjFiNTU0NTM3MGM5MDNkMWJjYmQ3MzBkODQ1YzBiYWJmYmY4MGQ3NyIsImlzRGRwaUVuYWJsZWQiOiJOIiwiaXNNdGZFbmFromNibGVkIjoiTiIsImZ5X2lkIjoiRk4xMDY1IiwiYXBwVHlwZSI6MTAwLCJleHAiOjE3ODMyMTE0MDASImF0IjoxNzgzMTg2NTUwLCJzdWIiOiJhY2Nlc3NfdG9rZW4ifQ.pp7d8h61Y1TYC-48518ptstpZ7n4AwPzhZZz9dNsg8c"
 
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
 
@@ -111,7 +81,7 @@ def get_index_weekly_html(symbol, expiry_day, title):
                 rows += f"<tr><td>{exp_dt} ({day_lbl})</td><td data-val='{row['Close']}'>{row['Close']:,.2f}</td><td style='{c_style}'>{row['Weekly Change Raw']:+.2f}%</td></tr>"
             return f"<h3>{title}</h3><table><thead><tr><th>तारीख</th><th>क्लोज प्राईस</th><th>बदल %</th></tr></thead><tbody>{rows}</tbody></table>"
         else:
-            return f"<div style='color:orange; padding:10px;'>⚠️ {title}: लाइव्ह मार्केट बंद आहे. उद्या सोमवारपासून डेटा चालू होईल.</div>"
+            return f"<div style='color:orange; padding:10px;'>⚠️ {title}: लाईव्ह मार्केट बंद आहे. उद्या सोमवारपासून डेटा चालू होईल.</div>"
     except Exception as e: 
         return f"<div style='color:red; padding:10px;'>❌ {title} Exception: {str(e)}</div>"
 
@@ -144,7 +114,7 @@ options_html = get_options_backtest_html()
 full_template = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Live Dashboard</title>
 <style>body {{ font-family: sans-serif; background-color: #f4f6f9; padding: 20px; }} .container {{ max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; }} h2, h3 {{ text-align: center; color: #0056b3; }} table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; }} th, td {{ padding: 12px; border: 1px solid #dee2e6; text-align: center; }} th {{ background-color: #007bff; color: white; }} tr:nth-child(even) {{ background-color: #f8f9fa; }}</style></head><body><div class="container"><h2>📊 LIVE OPTIONS & EXPIRES MASTER DASHBOARD</h2>{nifty_html}{sensex_html}{options_html}</div></body></html>"""
 
-os.makedirs("docs", exist_on_drop=True)
+os.makedirs("docs", exist_ok=True)
 with open("docs/index.html", "w", encoding="utf-8") as f: 
     f.write(full_template)
-print("Dashboard status generated successfully!")
+print("Dashboard updated successfully!")
