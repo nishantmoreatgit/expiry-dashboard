@@ -43,6 +43,7 @@ def get_index_weekly_html(symbol, expiry_day, title):
             weekly_df['Weekly Change Raw'] = weekly_df['Close'].pct_change() * 100
             weekly_df = weekly_df.dropna(subset=['Weekly Change Raw'])
             
+            # --- 🚀 क्लाउड लाइव्ह टिक डेटा फीड (Intraday LTP Logic) ---
             today = datetime.date.today()
             offset = (today.weekday() - expiry_day) % 7
             if offset == 0: offset = 7
@@ -60,12 +61,13 @@ def get_index_weekly_html(symbol, expiry_day, title):
                 last_expiry_data = df[df['Date'] <= last_expiry_date].iloc[-1]
                 expiry_close = last_expiry_data['Close']
                 live_pct_change = ((live_close - expiry_close) / expiry_close) * 100
+                
                 live_color = "color: #28a745; font-weight: bold; background-color: #e8f5e9;" if live_pct_change > 0 else "color: #dc3545; font-weight: bold; background-color: #ffebee;"
                 
                 live_row_html = f"""
                 <tr style="background-color: #fff9db; border: 2px solid #ff922b; font-weight: bold;">
                     <td>🔴 CLOUD LIVE (Last Fetch)</td>
-                    <td data-val="{live_close}">{live_close:,.2f}</td>
+                    <td data-val="{live_close}">{live_close:,.2f} (Today)</td>
                     <td data-val="{live_pct_change}" style="{live_color}">{live_pct_change:+.2f}%</td>
                 </tr>
                 """
@@ -78,7 +80,7 @@ def get_index_weekly_html(symbol, expiry_day, title):
                 c_style = "color: #28a745; font-weight: bold;" if row['Weekly Change Raw'] > 0 else "color: #dc3545; font-weight: bold;"
                 rows += f"<tr><td>{exp_dt} ({day_lbl})</td><td data-val='{row['Close']}'>{row['Close']:,.2f}</td><td style='{c_style}' data-val='{row['Weekly Change Raw']}'>{row['Weekly Change Raw']:+.2f}%</td></tr>"
             
-            return f"<h3>{title}</h3><table><thead><tr><th>तारीख</th><th>क्लोज प्राईस</th><th>बदल %</th></tr></thead><tbody>{live_row_html}{rows}</tbody></table>"
+            return f"<h3>{title}</h3><table><thead><tr><th onclick='sortTable(this,0)'>तारीख ▲▼</th><th onclick='sortTable(this,1)'>क्लोज प्राईस ▲▼</th><th onclick='sortTable(this,2)'>बदल % ▲▼</th></tr></thead><tbody>{live_row_html}{rows}</tbody></table>"
     except: pass
     return ""
 
@@ -101,8 +103,8 @@ def get_options_backtest_html():
                 pe_p = ((pe_ex - pe_en) / pe_en) * 100 if pe_en > 0 else 0.0
                 ce_style = "color: #28a745; font-weight: bold;" if ce_p > 0 else "color: #dc3545;"
                 pe_style = "color: #28a745; font-weight: bold;" if pe_p > 0 else "color: #dc3545;"
-                rows += f"<tr><td>{p_row['Date']} ते {c_row['Date']}</td><td data-val='{atm}'>{atm}</td><td>{p_row['Close']:.2f}➔{c_row['Close']:.2f}</td><td style='{ce_style}'>{ce_p:+.2f}%</td><td style='{pe_style}'>{pe_p:+.2f}%</td></tr>"
-            return f"<h3>Nifty 50 Options Backtest (ATM CE / PE)</h3><table><thead><tr><th>कालावधी ▲▼</th><th>ATM स्ट्राईक ▲▼</th><th>स्पॉट प्रवास</th><th>Call % बदल ▲▼</th><th>Put % बदल ▲▼</th></tr></thead><tbody>{rows}</tbody></table>"
+                rows += f"<tr><td>{p_row['Date']} ते {c_row['Date']}</td><td data-val='{atm}'>{atm}</td><td>{p_row['Close']:.2f}➔{c_row['Close']:.2f}</td><td style='{ce_style}' data-val='{ce_p}'>{ce_p:+.2f}%</td><td style='{pe_style}' data-val='{pe_p}'>{pe_p:+.2f}%</td></tr>"
+            return f"<h3>Nifty 50 Options Backtest (ATM CE / PE)</h3><table><thead><tr><th onclick='sortTable(this,0)'>कालावधी ▲▼</th><th onclick='sortTable(this,1)'>ATM स्ट्राईक ▲▼</th><th>स्पॉट प्रवास</th><th onclick='sortTable(this,3)'>Call % बदल ▲▼</th><th onclick='sortTable(this,4)'>Put % बदल ▲▼</th></tr></thead><tbody>{rows}</tbody></table>"
     except: pass
     return ""
 
@@ -110,28 +112,27 @@ nifty_html = get_index_weekly_html("NSE:NIFTY50-INDEX", 1, "Nifty 50 Spot Weekly
 sensex_html = get_index_weekly_html("BSE:SENSEX-INDEX", 3, "BSE Sensex Spot Weekly Report (Thursday Expiry)")
 options_html = get_options_backtest_html()
 
-# HTML डिझाइनमध्ये उजव्या कोपऱ्यात Live Clock चे स्टायलिंग आणि JavaScript जोडले आहे
+# HTML लेआउट पूर्णपणे फिक्स करून मुख्य पानात JavaScript घड्याळ आणि सॉर्टिंग जोडले आहे
 full_template = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="300"><title>Cloud Live Dashboard</title>
 <style>
-body {{ font-family: sans-serif; background-color: #f4f6f9; padding: 20px; }} 
-.container {{ max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; position: relative; }} 
+body {{ font-family: -apple-system, sans-serif; background-color: #f4f6f9; padding: 20px; }} 
+.container {{ max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); position: relative; }} 
 h2, h3 {{ text-align: center; color: #0056b3; }} 
-table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; }} 
-th, td {{ padding: 12px; border: 1px solid #dee2e6; text-align: center; }} 
-th {{ background-color: #007bff; color: white; }} 
+table {{ width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 30px; }} 
+th, td {{ padding: 12px 15px; border: 1px solid #dee2e6; text-align: center; }} 
+th {{ background-color: #007bff; color: white; cursor: pointer; }} 
 tr:nth-child(even) {{ background-color: #f8f9fa; }}
-/* 🕒 लाईव्ह घड्याळाचे सुंदर स्टायलिंग (Right Corner) */
+/* 🕒 घड्याळाचे सुंदर डिजिटल डिझाइन (Right Corner) */
 .live-clock-box {{ position: absolute; top: 25px; right: 25px; background: #212529; color: #00ff66; padding: 8px 15px; border-radius: 6px; font-family: monospace; font-size: 16px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }}
 </style></head>
 <body>
 <div class="container">
-    <!-- घड्याळाचा बॉक्स -->
     <div class="live-clock-box">⏰ MARKET TIME: <span id="clockDisplay">00:00:00</span></div>
     <h2>📊 CLOUD LIVE INTRA-DAY MASTER DASHBOARD</h2>
     {nifty_html}{sensex_html}{options_html}
 </div>
 <script>
-// ⏱️ दर सेकंदाला मिनिटे आणि सेकंद बदलणारे JavaScript घड्याळ
+// ⏱️ दर सेकंदाला सेकंद बदलणारे लाईव्ह घड्याळ (Tick-by-Tick)
 function updateClock() {{
     let now = new Date();
     let hours = String(now.getHours()).padStart(2, '0');
@@ -139,12 +140,30 @@ function updateClock() {{
     let seconds = String(now.getSeconds()).padStart(2, '0');
     document.getElementById('clockDisplay').textContent = hours + ":" + minutes + ":" + seconds;
 }}
-setInterval(updateClock, 1000); // दर १,००० मिलीसेकंद (१ सेकंड) ला रन होईल
-updateClock(); // पेज लोड झाल्यावर लगेच सुरू होईल
+setInterval(updateClock, 1000);
+updateClock();
+
+// 📊 सर्व टेबल्ससाठी एकच मास्टर सॉर्टिंग फंक्शन
+function sortTable(thEl, colIndex) {{
+    const table = thEl.closest('table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    thEl.asc = !thEl.asc;
+    rows.sort((rA, rB) => {{
+        let cA = rA.querySelectorAll('td')[colIndex];
+        let cB = rB.querySelectorAll('td')[colIndex];
+        if(!cA || !cB) return 0;
+        let vA = cA.getAttribute('data-val') || cA.innerText;
+        let vB = cB.getAttribute('data-val') || cB.innerText;
+        return (isNaN(vA) || isNaN(vB)) ? vA.localeCompare(vB) : parseFloat(vA) - parseFloat(vB);
+    }});
+    if (!thEl.asc) rows.reverse();
+    rows.forEach(r => tbody.appendChild(r));
+}}
 </script>
 </body></html>"""
 
 os.makedirs("docs", exist_ok=True)
 with open("docs/index.html", "w", encoding="utf-8") as f: 
     f.write(full_template)
-print("Cloud Live Dashboard with Tick Clock Generated!")
+print("Dashboard updated successfully with Live Tick Clock & Master Sorting!")
