@@ -23,12 +23,12 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        pip install pandas fyers-apiv3 requests
+        pip install pandas fyers-apiv3
 
     - name: Run Script
+      # गिटहब लॉकरमधील मॅन्युअल टोकन पायथन कोडकडे पास केला
       env:
-        FY_SECRET_KEY: ${{ secrets.FY_SECRET_KEY }}
-        FY_REFRESH_TOKEN: ${{ secrets.FY_REFRESH_TOKEN }} # परमनंट रिफ्रेश टोकन पास केला
+        FY_ACCESS_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
       run: python cloud_expiry.py
 
     - name: Commit & Push index.html
