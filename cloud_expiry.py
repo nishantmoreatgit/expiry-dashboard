@@ -5,14 +5,14 @@ import os
 from fyers_apiv3 import fyersModel
 
 # =====================================================================
-# 🔐 गिटहब लॉकर (Secrets) मधून मॅन्युअल ऍक्सेस टोकन आपोआप वाचणे
+# 🔐 Automatically reading token from GitHub Repository Secrets
 # =====================================================================
 client_id = "RAE54K69M5-100" 
 access_token = os.environ.get('FY_ACCESS_TOKEN')
 # =====================================================================
 
 if not access_token:
-    print("⚠️ वॉर्निंग: 'FY_ACCESS_TOKEN' सापडला नाही. बॅकअप टोकन वापरत आहे...")
+    print("⚠️ Warning: 'FY_ACCESS_TOKEN' not found. Using dummy fallback...")
     access_token = "EXPIRED_TOKEN_FOR_TESTING"
 
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
@@ -27,13 +27,13 @@ def black_scholes_options(S, K, T, r, sigma):
     return S * cdf_normal(d1) - K * math.exp(-r * T) * cdf_normal(d2), K * math.exp(-r * T) * cdf_normal(-d2) - S * cdf_normal(-d1)
 
 def get_index_weekly_html(symbol, expiry_day, title):
-    start_date = datetime.date(2025, 9, 1) [NSE]
+    start_date = datetime.date(2025, 9, 1)
     payload = {"symbol": symbol, "resolution": "D", "date_format": "1", "range_from": start_date.strftime("%Y-%m-%d"), "range_to": datetime.date.today().strftime("%Y-%m-%d"), "cont_flag": "1"}
     try:
         res = fyers.history(data=payload)
         if res and res.get('code') == 200:
             candles = res.get('candles', [])
-            if not candles: return f"<div style='color:orange; padding:10px;'>⚠️ {title}: डेटा मिळाला नाही.</div>"
+            if not candles: return f"<div style='color:orange; padding:10px;'>⚠️ {title}: No data received.</div>"
             
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
@@ -64,7 +64,7 @@ def get_index_weekly_html(symbol, expiry_day, title):
                 
                 live_row_html = f"""
                 <tr style="background-color: #fff9db; border: 3px solid #ff922b; font-weight: bold;">
-                    <td>🔴 CLOUD LIVE (LTP)</td>
+                    <td>🔴 CLOUD LIVE (Intraday LTP)</td>
                     <td data-val="{live_close}">{live_close:,.2f}</td>
                     <td data-val="{live_pct_change}" style="{live_color}">{live_pct_change:+.2f}%</td>
                 </tr>
@@ -83,7 +83,7 @@ def get_index_weekly_html(symbol, expiry_day, title):
     return ""
 
 def get_options_backtest_html():
-    start_date = datetime.date(2025, 9, 1) [NSE]
+    start_date = datetime.date(2025, 9, 1)
     payload = {"symbol": "NSE:NIFTY50-INDEX", "resolution": "D", "date_format": "1", "range_from": start_date.strftime("%Y-%m-%d"), "range_to": datetime.date.today().strftime("%Y-%m-%d"), "cont_flag": "1"}
     try:
         res = fyers.history(data=payload)
@@ -106,14 +106,13 @@ def get_options_backtest_html():
     except: pass
     return ""
 
-nifty_html = get_index_weekly_html("NSE:NIFTY50-INDEX", 1, "Nifty 50 Spot Weekly Report (Tuesday Expiry)") [NSE]
-sensex_html = get_index_weekly_html("BSE:SENSEX-INDEX", 3, "BSE Sensex Spot Weekly Report (Thursday Expiry)") [NSE]
+nifty_html = get_index_weekly_html("NSE:NIFTY50-INDEX", 1, "Nifty 50 Spot Weekly Report (Tuesday Expiry)")
+sensex_html = get_index_weekly_html("BSE:SENSEX-INDEX", 3, "BSE Sensex Spot Weekly Report (Thursday Expiry)")
 options_html = get_options_backtest_html()
 
-# मोबाईल फ्रेंडली Responsive HTML & CSS टेम्पलेट
 full_template = f"""<!DOCTYPE html><html><head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- 📱 मोबाईल स्क्रीन फिटिंगसाठी अत्यंत महत्त्वाचे -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="refresh" content="300">
 <title>Mobile Friendly Live Dashboard</title>
 <style>
@@ -121,16 +120,12 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans
 .container {{ max-width: 1100px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }} 
 h2 {{ text-align: center; color: #0056b3; font-size: 22px; margin-top: 5px; line-height: 1.3; }}
 h3 {{ text-align: center; color: #212529; font-size: 18px; margin-top: 30px; border-bottom: 2px solid #dee2e6; padding-bottom: 6px; }} 
-
-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; min-width: 500px; }} /* मोबाईलवर टेबल आक्रसू नये म्हणून min-width */
+table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; min-width: 500px; }} 
 th, td {{ padding: 10px 12px; border: 1px solid #dee2e6; text-align: center; }} 
 th {{ background-color: #007bff; color: white; cursor: pointer; user-select: none; }} 
 tr:nth-child(even) {{ background-color: #f8f9fa; }}
-
-/* 📱 कोष्टक मोबाईल स्क्रीनवर डावीकडे-उजवीकडे स्क्रोल होण्यासाठीचा कंटेनर */
 .table-responsive {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 15px; border-radius: 6px; }}
 
-/* 🕒 ⚡ मोबाईल रिस्पॉन्सिव्ह डिजिटल घड्याळ ⚡ */
 .mega-live-clock {{ 
     text-align: center; 
     margin: 15px auto; 
@@ -139,14 +134,13 @@ tr:nth-child(even) {{ background-color: #f8f9fa; }}
     padding: 10px 25px; 
     border-radius: 8px; 
     font-family: 'Courier New', Courier, monospace; 
-    font-size: 28px; /* मोबाईलसाठी सुटसुटीत आकार */
+    font-size: 28px; 
     font-weight: bold; 
     width: fit-content; 
     box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
     letter-spacing: 1px;
 }}
 
-/* 💻 मोठ्या कॉम्प्युटर स्क्रीनसाठी डिझाईन मोठे करणे */
 @media (min-width: 768px) {{
     body {{ padding: 25px; }}
     .container {{ padding: 30px; }}
@@ -160,10 +154,7 @@ tr:nth-child(even) {{ background-color: #f8f9fa; }}
 <body>
 <div class="container">
     <h2>📊 CLOUD LIVE INTRA-DAY MASTER DASHBOARD</h2>
-    
-    <!-- रिस्पॉन्सिव्ह घड्याळ -->
     <div class="mega-live-clock">⏰ <span id="clockDisplay">00:00:00</span></div>
-    
     {nifty_html}{sensex_html}{options_html}
 </div>
 <script>
@@ -180,3 +171,11 @@ updateClock();
 function sortTable(thEl, colIndex) {{
     const table = thEl.closest('table');
     const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    thEl.asc = !thEl.asc;
+    rows.sort((rA, rB) => {{
+        let cA = rA.querySelectorAll('td')[colIndex];
+        let cB = rB.querySelectorAll('td')[colIndex];
+        if(!cA || !cB) return 0;
+        let vA = cA.getAttribute('data-val') || cA.innerText;
+        let vB = cB.getAttribute('data-val') || cB.innerText;
