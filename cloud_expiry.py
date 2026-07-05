@@ -33,7 +33,7 @@ def get_index_weekly_html(symbol, expiry_day, title):
         res = fyers.history(data=payload)
         if res and res.get('code') == 200:
             candles = res.get('candles', [])
-            if not candles: return f"<div style='color:orange; padding:10px;'>⚠️ {title}: डेटा रिकामा मिळाला.</div>"
+            if not candles: return f"<div style='color:orange; padding:10px;'>⚠️ {title}: डेटा मिळाला नाही.</div>"
             
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
@@ -43,7 +43,6 @@ def get_index_weekly_html(symbol, expiry_day, title):
             weekly_df['Weekly Change Raw'] = weekly_df['Close'].pct_change() * 100
             weekly_df = weekly_df.dropna(subset=['Weekly Change Raw'])
             
-            # --- 🚀 क्लाउड लाइव्ह टिक डेटा फीड (Intraday LTP Logic) ---
             today = datetime.date.today()
             offset = (today.weekday() - expiry_day) % 7
             if offset == 0: offset = 7
@@ -61,12 +60,11 @@ def get_index_weekly_html(symbol, expiry_day, title):
                 last_expiry_data = df[df['Date'] <= last_expiry_date].iloc[-1]
                 expiry_close = last_expiry_data['Close']
                 live_pct_change = ((live_close - expiry_close) / expiry_close) * 100
-                
                 live_color = "color: #28a745; font-weight: bold; background-color: #e8f5e9;" if live_pct_change > 0 else "color: #dc3545; font-weight: bold; background-color: #ffebee;"
                 
                 live_row_html = f"""
-                <tr style="background-color: #fff9db; border: 2px solid #ff922b; font-weight: bold;">
-                    <td>🔴 CLOUD LIVE (Last Fetch)</td>
+                <tr style="background-color: #fff9db; border: 3px solid #ff922b; font-weight: bold; font-size: 18px;">
+                    <td>🔴 CLOUD LIVE (Intraday LTP)</td>
                     <td data-val="{live_close}">{live_close:,.2f} (Today)</td>
                     <td data-val="{live_pct_change}" style="{live_color}">{live_pct_change:+.2f}%</td>
                 </tr>
@@ -112,27 +110,48 @@ nifty_html = get_index_weekly_html("NSE:NIFTY50-INDEX", 1, "Nifty 50 Spot Weekly
 sensex_html = get_index_weekly_html("BSE:SENSEX-INDEX", 3, "BSE Sensex Spot Weekly Report (Thursday Expiry)")
 options_html = get_options_backtest_html()
 
-# HTML लेआउट पूर्णपणे फिक्स करून मुख्य पानात JavaScript घड्याळ आणि सॉर्टिंग जोडले आहे
-full_template = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="300"><title>Cloud Live Dashboard</title>
+# HTML मेगा फॉन्ट आणि मोठा क्लॉक बॉक्स डिझाइन
+full_template = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="300"><title>Mega Live Dashboard</title>
 <style>
-body {{ font-family: -apple-system, sans-serif; background-color: #f4f6f9; padding: 20px; }} 
-.container {{ max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); position: relative; }} 
-h2, h3 {{ text-align: center; color: #0056b3; }} 
-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 30px; }} 
-th, td {{ padding: 12px 15px; border: 1px solid #dee2e6; text-align: center; }} 
-th {{ background-color: #007bff; color: white; cursor: pointer; }} 
+body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; padding: 25px; }} 
+.container {{ max-width: 1100px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); }} 
+h2 {{ text-align: center; color: #0056b3; font-size: 28px; margin-top: 5px; }}
+h3 {{ text-align: center; color: #212529; font-size: 22px; margin-top: 35px; border-bottom: 2px solid #dee2e6; padding-bottom: 8px; }} 
+table {{ width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 16px; }} 
+th, td {{ padding: 14px 18px; border: 1px solid #dee2e6; text-align: center; }} 
+th {{ background-color: #007bff; color: white; cursor: pointer; font-size: 17px; user-select: none; }} 
+th:hover {{ background-color: #0056b3; }}
 tr:nth-child(even) {{ background-color: #f8f9fa; }}
-/* 🕒 घड्याळाचे सुंदर डिजिटल डिझाइन (Right Corner) */
-.live-clock-box {{ position: absolute; top: 25px; right: 25px; background: #212529; color: #00ff66; padding: 8px 15px; border-radius: 6px; font-family: monospace; font-size: 16px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }}
+tr:hover {{ background-color: #f1f3f5; }}
+
+/* 🕒 ⚡ मेगा आकाराचे डिजिटल लाइव्ह घड्याळ (BIG SIZE CENTER CLOCK) ⚡ */
+.mega-live-clock {{ 
+    text-align: center; 
+    margin: 20px auto; 
+    background: #1a1d20; 
+    color: #00ff66; 
+    padding: 15px 35px; 
+    border-radius: 12px; 
+    font-family: 'Courier New', Courier, monospace; 
+    font-size: 35px; /* <--- आकार दुप्पट मोठा केला आहे! */
+    font-weight: bold; 
+    width: fit-content; 
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3); 
+    letter-spacing: 2px;
+    border: 2px solid #343a40;
+}}
 </style></head>
 <body>
 <div class="container">
-    <div class="live-clock-box">⏰ MARKET TIME: <span id="clockDisplay">00:00:00</span></div>
     <h2>📊 CLOUD LIVE INTRA-DAY MASTER DASHBOARD</h2>
+    
+    <!-- ⏱️ हे ते मेगा घड्याळ जे स्क्रीनवर सर्वात ठळक दिसेल -->
+    <div class="mega-live-clock">⏰ <span id="clockDisplay">00:00:00</span></div>
+    
     {nifty_html}{sensex_html}{options_html}
 </div>
 <script>
-// ⏱️ दर सेकंदाला सेकंद बदलणारे लाईव्ह घड्याळ (Tick-by-Tick)
+// दर सेकंदाला टिक-टिक करणारे लाईव्ह इंजिन
 function updateClock() {{
     let now = new Date();
     let hours = String(now.getHours()).padStart(2, '0');
@@ -143,7 +162,7 @@ function updateClock() {{
 setInterval(updateClock, 1000);
 updateClock();
 
-// 📊 सर्व टेबल्ससाठी एकच मास्टर सॉर्टिंग फंक्शन
+// मास्टर सॉर्टिंग मॅजिक
 function sortTable(thEl, colIndex) {{
     const table = thEl.closest('table');
     const tbody = table.querySelector('tbody');
@@ -163,7 +182,3 @@ function sortTable(thEl, colIndex) {{
 </script>
 </body></html>"""
 
-os.makedirs("docs", exist_ok=True)
-with open("docs/index.html", "w", encoding="utf-8") as f: 
-    f.write(full_template)
-print("Dashboard updated successfully with Live Tick Clock & Master Sorting!")
