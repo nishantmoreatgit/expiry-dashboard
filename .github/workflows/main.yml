@@ -2,7 +2,8 @@ name: Update Live Expiry Dashboard
 
 on:
   schedule:
-    - cron: '0 11 * * 1-5' # सोमवार ते शुक्रवार दुपारी ४:३० वाजता (IST)
+    # ⏱️ सोमवार ते शुक्रवार भारतीय वेळेनुसार सकाळी ८:३० ते दुपारी ३:३० दरम्यान दर ५ मिनिटांनी धावेल
+    - cron: '*/5 3-10 * * 1-5'
   workflow_dispatch: # मॅन्युअली रन करण्यासाठी बटण
 
 permissions:
@@ -23,10 +24,9 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        pip install pandas fyers-apiv3
+        pip install pandas fyers-apiv3 requests
 
     - name: Run Script
-      # गिटहब लॉकरमधील मॅन्युअल टोकन पायथन कोडकडे पास केला
       env:
         FY_ACCESS_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
       run: python cloud_expiry.py
