@@ -4,16 +4,15 @@ import pandas as pd
 import os
 from fyers_apiv3 import fyersModel
 
-client_id = "RAE54K69M5-100" 
-
 # =====================================================================
 # 🔐 गिटहब लॉकर (Secrets) मधून मॅन्युअल ऍक्सेस टोकन आपोआप वाचणे
 # =====================================================================
+client_id = "RAE54K69M5-100" 
 access_token = os.environ.get('FY_ACCESS_TOKEN')
 # =====================================================================
 
 if not access_token:
-    print("⚠️ वॉर्निंग: गिटहब सेटी增ग्जमध्ये 'FY_ACCESS_TOKEN' सापडला नाही. बॅकअप टोकन वापरत आहे...")
+    print("⚠️ वॉर्निंग: 'FY_ACCESS_TOKEN' सापडला नाही. बॅकअप टोकन वापरत आहे...")
     access_token = "EXPIRED_TOKEN_FOR_TESTING"
 
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
@@ -34,23 +33,62 @@ def get_index_weekly_html(symbol, expiry_day, title):
         res = fyers.history(data=payload)
         if res and res.get('code') == 200:
             candles = res.get('candles', [])
-            if not candles: return f"<div style='color:orange; padding:10px;'>⚠️ {title}: डेटा रिकामा मिळाला. (आज सुट्टी असू शकते)</div>"
+            if not candles: return f"<div style='color:orange; padding:10px;'>⚠️ {title}: डेटा रिकाma मिळाला.</div>"
+            
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
             df['Day of Week'] = pd.to_datetime(df['Date']).dt.weekday
+            
+            # केवळ मुख्य एक्सपायरी डे फिल्टर करा
             weekly_df = df[df['Day of Week'] == expiry_day].sort_values(by='Date').copy()
             weekly_df['Weekly Change Raw'] = weekly_df['Close'].pct_change() * 100
             weekly_df = weekly_df.dropna(subset=['Weekly Change Raw'])
             
+            # --- 🚀 नवीन लाईव्ह रो (LIVE Row) लॉजिक ---
+            today = datetime.date.today()
+            offset = (today.weekday() - expiry_day) % 7
+            if offset == 0: 
+                offset = 7
+            last_expiry_date = today - datetime.timedelta(days=offset)
+            
+            live_row_html = ""
+            try:
+                # मागच्या एक्सपायरी दिवशीचा आणि आजचा लेटेस्ट डेटा मिळवणे
+                last_expiry_data = df[df['Date'] <= last_expiry_date].iloc[-1]
+                today_data = df.iloc[-1]
+                
+                # जर आज स्वतः एक्सपायरीचा दिवस नसेल तरच लाईव्ह बदल दाखवा
+                if last_expiry_data['Date'] != today_data['Date']:
+                    live_close = today_data['Close']
+                    expiry_close = last_expiry_data['Close']
+                    live_pct_change = ((live_close - expiry_close) / expiry_close) * 100
+                    
+                    # रंगांचे स्टायलिंग (Profit ला हिरवा, Loss ला लाल)
+                    live_color = "color: #28a745; font-weight: bold; background-color: #e8f5e9;" if live_pct_change > 0 else "color: #dc3545; font-weight: bold; background-color: #ffebee;"
+                    live_day_lbl = "Tue" if expiry_day == 1 else "Thu"
+                    
+                    live_row_html = f"""
+                    <tr style="background-color: #f1f3f5; border: 2px solid #007bff; font-weight: bold;">
+                        <td data-val="{today_data['Date'].strftime('%Y-%m-%d')}">LIVE (Since Expiry: {last_expiry_data['Date'].strftime('%d-%b')})</td>
+                        <td data-val="{live_close}">{live_close:,.2f} (Today)</td>
+                        <td data-val="{live_pct_change}" style="{live_color}">{live_pct_change:+.2f}%</td>
+                    </tr>
+                    """
+            except Exception as e_live:
+                print(f"Live row calculation issue: {e_live}")
+            
+            # सर्व ऐतिहासिक रोज तयार करणे
             rows = ""
             for idx, row in weekly_df.iterrows():
                 exp_dt = row['Date'].strftime("%Y-%m-%d")
                 day_lbl = "Tue" if expiry_day == 1 else "Thu"
                 c_style = "color: #28a745; font-weight: bold;" if row['Weekly Change Raw'] > 0 else "color: #dc3545; font-weight: bold;"
-                rows += f"<tr><td>{exp_dt} ({day_lbl})</td><td data-val='{row['Close']}'>{row['Close']:,.2f}</td><td style='{c_style}' data-val='{row['Weekly Change Raw']}'>{row['Weekly Change Raw']:+.2f}%</td></tr>"
-            return f"<h3>{title}</h3><table><thead><tr><th onclick='sortTable(this,0)'>तारीख ▲▼</th><th onclick='sortTable(this,1)'>क्लोज प्राईस ▲▼</th><th onclick='sortTable(this,2)'>बदल % ▲▼</th></tr></thead><tbody>{rows}</tbody></table>"
+                rows += f"<tr><td data-val='{exp_dt}'>{exp_dt} ({day_lbl})</td><td data-val='{row['Close']}'>{row['Close']:,.2f}</td><td style='{c_style}' data-val='{row['Weekly Change Raw']}'>{row['Weekly Change Raw']:+.2f}%</td></tr>"
+            
+            # कोष्टकामध्ये ऐतिहासिक डेटासोबत शेवटी लाईव्ह रो जोडला
+            return f"<h3>{title}</h3><table><thead><tr><th onclick='sortTable(this,0)'>तारीख ▲▼</th><th onclick='sortTable(this,1)'>क्लोज प्राईस ▲▼</th><th onclick='sortTable(this,2)'>बदल % ▲▼</th></tr></thead><tbody>{rows}{live_row_html}</tbody></table>"
         else:
-            return f"<div style='color:red; padding:10px;'>❌ {title} Error: FYERS API ने कोड {res.get('code') if res else 'No Response'} दिला. (टोकन एक्सपायर झाले असावे)</div>"
+            return f"<div style='color:red; padding:10px;'>❌ {title} Error: FYERS API कोड {res.get('code') if res else 'No Response'}</div>"
     except Exception as e: 
         return f"<div style='color:red; padding:10px;'>❌ {title} Exception: {str(e)}</div>"
 
@@ -113,4 +151,4 @@ function sortTable(thEl, colIndex) {{
 os.makedirs("docs", exist_ok=True)
 with open("docs/index.html", "w", encoding="utf-8") as f: 
     f.write(full_template)
-print("Dashboard updated successfully!")
+print("Dashboard updated successfully with Live Tracking!")
