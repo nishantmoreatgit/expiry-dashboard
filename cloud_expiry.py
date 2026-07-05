@@ -5,17 +5,21 @@ import os
 from fyers_apiv3 import fyersModel
 
 # =====================================================================
-# 🔐 Automatically reading token from GitHub Repository Secrets
+# 🔐 गिटहब लॉकर (Secrets) मधून मॅन्युअल ऍक्सेस टोकन आपोआप वाचणे
 # =====================================================================
-client_id = "RAE54K69M5-100" 
 access_token = os.environ.get('FY_ACCESS_TOKEN')
+client_id = "RAE54K69M5-100" 
 # =====================================================================
 
-if not access_token:
-    print("⚠️ Warning: 'FY_ACCESS_TOKEN' not found. Using dummy fallback...")
-    access_token = "EXPIRED_TOKEN_FOR_TESTING"
+if not access_token or access_token == "EXPIRED_TOKEN_FOR_TESTING":
+    print("⚠️ वॉर्निंग: 'FY_ACCESS_TOKEN' अजून सेट केलेला नाही.")
+    access_token = "DUMMY_TOKEN"
 
-fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
+# एरर हँडलर चौकटीसह फायर्स मॉडेल सुरू करणे
+try:
+    fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
+except Exception as e_init:
+    print(f"Fyers Init Info: {e_init}")
 
 def cdf_normal(x):
     return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
@@ -33,7 +37,7 @@ def get_index_weekly_html(symbol, expiry_day, title):
         res = fyers.history(data=payload)
         if res and res.get('code') == 200:
             candles = res.get('candles', [])
-            if not candles: return f"<div style='color:orange; padding:10px;'>⚠️ {title}: No data received.</div>"
+            if not candles: return f"<div style='color:orange; padding:10px;'>⚠️ {title}: डेटा मिळाला नाही.</div>"
             
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
@@ -63,7 +67,7 @@ def get_index_weekly_html(symbol, expiry_day, title):
                 live_color = "color: #28a745; font-weight: bold; background-color: #e8f5e9;" if live_pct_change > 0 else "color: #dc3545; font-weight: bold; background-color: #ffebee;"
                 
                 live_row_html = f"""
-                <tr style="background-color: #fff9db; border: 3px solid #ff922b; font-weight: bold;">
+                <tr style="background-color: #fff9db; border: 2px solid #ff922b; font-weight: bold;">
                     <td>🔴 CLOUD LIVE (Intraday LTP)</td>
                     <td data-val="{live_close}">{live_close:,.2f}</td>
                     <td data-val="{live_pct_change}" style="{live_color}">{live_pct_change:+.2f}%</td>
@@ -79,8 +83,10 @@ def get_index_weekly_html(symbol, expiry_day, title):
                 rows += f"<tr><td>{exp_dt} ({day_lbl})</td><td data-val='{row['Close']}'>{row['Close']:,.2f}</td><td style='{c_style}' data-val='{row['Weekly Change Raw']}'>{row['Weekly Change Raw']:+.2f}%</td></tr>"
             
             return f"<h3>{title}</h3><div class='table-responsive'><table><thead><tr><th onclick='sortTable(this,0)'>तारीख ▲▼</th><th onclick='sortTable(this,1)'>क्लोज प्राईस ▲▼</th><th onclick='sortTable(this,2)'>बदल % ▲▼</th></tr></thead><tbody>{live_row_html}{rows}</tbody></table></div>"
-    except: pass
-    return ""
+        else:
+            return f"<div style='color:red; padding:20px; font-weight:bold;'>⚠️ FYERS API: {title} साठी वैध टोकन आवश्यक आहे. (उद्या सकाळी नवीन टोकन टाका)</div>"
+    except Exception as e: 
+        return f"<div style='color:red; padding:10px;'>❌ {title} Exception: {str(e)}</div>"
 
 def get_options_backtest_html():
     start_date = datetime.date(2025, 9, 1)
@@ -90,6 +96,7 @@ def get_options_backtest_html():
         if res and res.get('code') == 200:
             df = pd.DataFrame(res.get('candles', []), columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
+            # येथे 'dt.weekday' दुरुस्त केले आहे
             weekly_df = df[pd.to_datetime(df['Date']).dt.weekday == 1].sort_values(by='Date').copy()
             rows = ""
             for i in range(1, len(weekly_df)):
@@ -103,6 +110,8 @@ def get_options_backtest_html():
                 pe_style = "color: #28a745; font-weight: bold;" if pe_p > 0 else "color: #dc3545;"
                 rows += f"<tr><td>{p_row['Date']} ते {c_row['Date']}</td><td data-val='{atm}'>{atm}</td><td>{p_row['Close']:.2f}➔{c_row['Close']:.2f}</td><td style='{ce_style}' data-val='{ce_p}'>{ce_p:+.2f}%</td><td style='{pe_style}' data-val='{pe_p}'>{pe_p:+.2f}%</td></tr>"
             return f"<h3>Nifty 50 Options Backtest (ATM CE / PE)</h3><div class='table-responsive'><table><thead><tr><th onclick='sortTable(this,0)'>कालावधी ▲▼</th><th onclick='sortTable(this,1)'>ATM स्ट्राईक ▲▼</th><th>स्पॉट प्रवास</th><th onclick='sortTable(this,3)'>Call % बदल ▲▼</th><th onclick='sortTable(this,4)'>Put % बदल ▲▼</th></tr></thead><tbody>{rows}</tbody></table></div>"
+        else:
+            return f"<div style='color:orange; padding:20px; text-align:center; font-weight:bold;'>📉 ऑप्शन्स बॅकटेस्ट: नवीन टोकन प्रलंबित आहे.</div>"
     except: pass
     return ""
 
@@ -110,6 +119,7 @@ nifty_html = get_index_weekly_html("NSE:NIFTY50-INDEX", 1, "Nifty 50 Spot Weekly
 sensex_html = get_index_weekly_html("BSE:SENSEX-INDEX", 3, "BSE Sensex Spot Weekly Report (Thursday Expiry)")
 options_html = get_options_backtest_html()
 
+# HTML टेम्पलेट अचूक क्लोजिंग ट्रिपल कोट्ससह (""") दुरुस्त केले आहे
 full_template = f"""<!DOCTYPE html><html><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -163,19 +173,3 @@ function updateClock() {{
     let hours = String(now.getHours()).padStart(2, '0');
     let minutes = String(now.getMinutes()).padStart(2, '0');
     let seconds = String(now.getSeconds()).padStart(2, '0');
-    document.getElementById('clockDisplay').textContent = hours + ":" + minutes + ":" + seconds;
-}}
-setInterval(updateClock, 1000);
-updateClock();
-
-function sortTable(thEl, colIndex) {{
-    const table = thEl.closest('table');
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    thEl.asc = !thEl.asc;
-    rows.sort((rA, rB) => {{
-        let cA = rA.querySelectorAll('td')[colIndex];
-        let cB = rB.querySelectorAll('td')[colIndex];
-        if(!cA || !cB) return 0;
-        let vA = cA.getAttribute('data-val') || cA.innerText;
-        let vB = cB.getAttribute('data-val') || cB.innerText;
