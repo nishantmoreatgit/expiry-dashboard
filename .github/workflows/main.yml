@@ -8,12 +8,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    # गिटहबच्या नवीन सिस्टीमला जुने व्हर्जन चालवण्यासाठीची अधिकृत परवानगी (मास्टर की)
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v4 # व्हर्जन v3 वरून v4 केले (Node 24 सुसंगत)
+      uses: actions/checkout@v3
 
     - name: Set up Python
-      uses: actions/setup-python@v5 # व्हर्जन v4 वरून v5 केले (Node 24 सुसंगत)
+      uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
@@ -25,7 +30,7 @@ jobs:
       run: python cloud_expiry.py
 
     - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v4 # व्हर्जन v3 वरून v4 केले
+      uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./
