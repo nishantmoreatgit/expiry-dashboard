@@ -27,7 +27,7 @@ def black_scholes_options(S, K, T, r, sigma):
     return S * cdf_normal(d1) - K * math.exp(-r * T) * cdf_normal(d2), K * math.exp(-r * T) * cdf_normal(-d2) - S * cdf_normal(-d1)
 
 def get_index_weekly_html(symbol, expiry_day, title):
-    start_date = datetime.date(2025, 9, 1)
+    start_date = datetime.date(2025, 9, 1) [NSE]
     payload = {"symbol": symbol, "resolution": "D", "date_format": "1", "range_from": start_date.strftime("%Y-%m-%d"), "range_to": datetime.date.today().strftime("%Y-%m-%d"), "cont_flag": "1"}
     try:
         res = fyers.history(data=payload)
@@ -63,9 +63,9 @@ def get_index_weekly_html(symbol, expiry_day, title):
                 live_color = "color: #28a745; font-weight: bold; background-color: #e8f5e9;" if live_pct_change > 0 else "color: #dc3545; font-weight: bold; background-color: #ffebee;"
                 
                 live_row_html = f"""
-                <tr style="background-color: #fff9db; border: 3px solid #ff922b; font-weight: bold; font-size: 18px;">
-                    <td>🔴 CLOUD LIVE (Intraday LTP)</td>
-                    <td data-val="{live_close}">{live_close:,.2f} (Today)</td>
+                <tr style="background-color: #fff9db; border: 3px solid #ff922b; font-weight: bold;">
+                    <td>🔴 CLOUD LIVE (LTP)</td>
+                    <td data-val="{live_close}">{live_close:,.2f}</td>
                     <td data-val="{live_pct_change}" style="{live_color}">{live_pct_change:+.2f}%</td>
                 </tr>
                 """
@@ -78,12 +78,12 @@ def get_index_weekly_html(symbol, expiry_day, title):
                 c_style = "color: #28a745; font-weight: bold;" if row['Weekly Change Raw'] > 0 else "color: #dc3545; font-weight: bold;"
                 rows += f"<tr><td>{exp_dt} ({day_lbl})</td><td data-val='{row['Close']}'>{row['Close']:,.2f}</td><td style='{c_style}' data-val='{row['Weekly Change Raw']}'>{row['Weekly Change Raw']:+.2f}%</td></tr>"
             
-            return f"<h3>{title}</h3><table><thead><tr><th onclick='sortTable(this,0)'>तारीख ▲▼</th><th onclick='sortTable(this,1)'>क्लोज प्राईस ▲▼</th><th onclick='sortTable(this,2)'>बदल % ▲▼</th></tr></thead><tbody>{live_row_html}{rows}</tbody></table>"
+            return f"<h3>{title}</h3><div class='table-responsive'><table><thead><tr><th onclick='sortTable(this,0)'>तारीख ▲▼</th><th onclick='sortTable(this,1)'>क्लोज प्राईस ▲▼</th><th onclick='sortTable(this,2)'>बदल % ▲▼</th></tr></thead><tbody>{live_row_html}{rows}</tbody></table></div>"
     except: pass
     return ""
 
 def get_options_backtest_html():
-    start_date = datetime.date(2025, 9, 1)
+    start_date = datetime.date(2025, 9, 1) [NSE]
     payload = {"symbol": "NSE:NIFTY50-INDEX", "resolution": "D", "date_format": "1", "range_from": start_date.strftime("%Y-%m-%d"), "range_to": datetime.date.today().strftime("%Y-%m-%d"), "cont_flag": "1"}
     try:
         res = fyers.history(data=payload)
@@ -102,56 +102,71 @@ def get_options_backtest_html():
                 ce_style = "color: #28a745; font-weight: bold;" if ce_p > 0 else "color: #dc3545;"
                 pe_style = "color: #28a745; font-weight: bold;" if pe_p > 0 else "color: #dc3545;"
                 rows += f"<tr><td>{p_row['Date']} ते {c_row['Date']}</td><td data-val='{atm}'>{atm}</td><td>{p_row['Close']:.2f}➔{c_row['Close']:.2f}</td><td style='{ce_style}' data-val='{ce_p}'>{ce_p:+.2f}%</td><td style='{pe_style}' data-val='{pe_p}'>{pe_p:+.2f}%</td></tr>"
-            return f"<h3>Nifty 50 Options Backtest (ATM CE / PE)</h3><table><thead><tr><th onclick='sortTable(this,0)'>कालावधी ▲▼</th><th onclick='sortTable(this,1)'>ATM स्ट्राईक ▲▼</th><th>स्पॉट प्रवास</th><th onclick='sortTable(this,3)'>Call % बदल ▲▼</th><th onclick='sortTable(this,4)'>Put % बदल ▲▼</th></tr></thead><tbody>{rows}</tbody></table>"
+            return f"<h3>Nifty 50 Options Backtest (ATM CE / PE)</h3><div class='table-responsive'><table><thead><tr><th onclick='sortTable(this,0)'>कालावधी ▲▼</th><th onclick='sortTable(this,1)'>ATM स्ट्राईक ▲▼</th><th>स्पॉट प्रवास</th><th onclick='sortTable(this,3)'>Call % बदल ▲▼</th><th onclick='sortTable(this,4)'>Put % बदल ▲▼</th></tr></thead><tbody>{rows}</tbody></table></div>"
     except: pass
     return ""
 
-nifty_html = get_index_weekly_html("NSE:NIFTY50-INDEX", 1, "Nifty 50 Spot Weekly Report (Tuesday Expiry)")
-sensex_html = get_index_weekly_html("BSE:SENSEX-INDEX", 3, "BSE Sensex Spot Weekly Report (Thursday Expiry)")
+nifty_html = get_index_weekly_html("NSE:NIFTY50-INDEX", 1, "Nifty 50 Spot Weekly Report (Tuesday Expiry)") [NSE]
+sensex_html = get_index_weekly_html("BSE:SENSEX-INDEX", 3, "BSE Sensex Spot Weekly Report (Thursday Expiry)") [NSE]
 options_html = get_options_backtest_html()
 
-# HTML मेगा फॉन्ट आणि मोठा क्लॉक बॉक्स डिझाइन
-full_template = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="300"><title>Mega Live Dashboard</title>
+# मोबाईल फ्रेंडली Responsive HTML & CSS टेम्पलेट
+full_template = f"""<!DOCTYPE html><html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- 📱 मोबाईल स्क्रीन फिटिंगसाठी अत्यंत महत्त्वाचे -->
+<meta http-equiv="refresh" content="300">
+<title>Mobile Friendly Live Dashboard</title>
 <style>
-body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; padding: 25px; }} 
-.container {{ max-width: 1100px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); }} 
-h2 {{ text-align: center; color: #0056b3; font-size: 28px; margin-top: 5px; }}
-h3 {{ text-align: center; color: #212529; font-size: 22px; margin-top: 35px; border-bottom: 2px solid #dee2e6; padding-bottom: 8px; }} 
-table {{ width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 16px; }} 
-th, td {{ padding: 14px 18px; border: 1px solid #dee2e6; text-align: center; }} 
-th {{ background-color: #007bff; color: white; cursor: pointer; font-size: 17px; user-select: none; }} 
-th:hover {{ background-color: #0056b3; }}
-tr:nth-child(even) {{ background-color: #f8f9fa; }}
-tr:hover {{ background-color: #f1f3f5; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; padding: 15px; margin: 0; }} 
+.container {{ max-width: 1100px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }} 
+h2 {{ text-align: center; color: #0056b3; font-size: 22px; margin-top: 5px; line-height: 1.3; }}
+h3 {{ text-align: center; color: #212529; font-size: 18px; margin-top: 30px; border-bottom: 2px solid #dee2e6; padding-bottom: 6px; }} 
 
-/* 🕒 ⚡ मेगा आकाराचे डिजिटल लाइव्ह घड्याळ (BIG SIZE CENTER CLOCK) ⚡ */
+table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; min-width: 500px; }} /* मोबाईलवर टेबल आक्रसू नये म्हणून min-width */
+th, td {{ padding: 10px 12px; border: 1px solid #dee2e6; text-align: center; }} 
+th {{ background-color: #007bff; color: white; cursor: pointer; user-select: none; }} 
+tr:nth-child(even) {{ background-color: #f8f9fa; }}
+
+/* 📱 कोष्टक मोबाईल स्क्रीनवर डावीकडे-उजवीकडे स्क्रोल होण्यासाठीचा कंटेनर */
+.table-responsive {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 15px; border-radius: 6px; }}
+
+/* 🕒 ⚡ मोबाईल रिस्पॉन्सिव्ह डिजिटल घड्याळ ⚡ */
 .mega-live-clock {{ 
     text-align: center; 
-    margin: 20px auto; 
+    margin: 15px auto; 
     background: #1a1d20; 
     color: #00ff66; 
-    padding: 15px 35px; 
-    border-radius: 12px; 
+    padding: 10px 25px; 
+    border-radius: 8px; 
     font-family: 'Courier New', Courier, monospace; 
-    font-size: 35px; /* <--- आकार दुप्पट मोठा केला आहे! */
+    font-size: 28px; /* मोबाईलसाठी सुटसुटीत आकार */
     font-weight: bold; 
     width: fit-content; 
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3); 
-    letter-spacing: 2px;
-    border: 2px solid #343a40;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
+    letter-spacing: 1px;
+}}
+
+/* 💻 मोठ्या कॉम्प्युटर स्क्रीनसाठी डिझाईन मोठे करणे */
+@media (min-width: 768px) {{
+    body {{ padding: 25px; }}
+    .container {{ padding: 30px; }}
+    h2 {{ font-size: 28px; }}
+    h3 {{ font-size: 22px; }}
+    table {{ font-size: 16px; }}
+    th, td {{ padding: 14px 18px; }}
+    .mega-live-clock {{ font-size: 35px; padding: 15px 35px; }}
 }}
 </style></head>
 <body>
 <div class="container">
     <h2>📊 CLOUD LIVE INTRA-DAY MASTER DASHBOARD</h2>
     
-    <!-- ⏱️ हे ते मेगा घड्याळ जे स्क्रीनवर सर्वात ठळक दिसेल -->
+    <!-- रिस्पॉन्सिव्ह घड्याळ -->
     <div class="mega-live-clock">⏰ <span id="clockDisplay">00:00:00</span></div>
     
     {nifty_html}{sensex_html}{options_html}
 </div>
 <script>
-// दर सेकंदाला टिक-टिक करणारे लाईव्ह इंजिन
 function updateClock() {{
     let now = new Date();
     let hours = String(now.getHours()).padStart(2, '0');
@@ -162,23 +177,6 @@ function updateClock() {{
 setInterval(updateClock, 1000);
 updateClock();
 
-// मास्टर सॉर्टिंग मॅजिक
 function sortTable(thEl, colIndex) {{
     const table = thEl.closest('table');
     const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    thEl.asc = !thEl.asc;
-    rows.sort((rA, rB) => {{
-        let cA = rA.querySelectorAll('td')[colIndex];
-        let cB = rB.querySelectorAll('td')[colIndex];
-        if(!cA || !cB) return 0;
-        let vA = cA.getAttribute('data-val') || cA.innerText;
-        let vB = cB.getAttribute('data-val') || cB.innerText;
-        return (isNaN(vA) || isNaN(vB)) ? vA.localeCompare(vB) : parseFloat(vA) - parseFloat(vB);
-    }});
-    if (!thEl.asc) rows.reverse();
-    rows.forEach(r => tbody.appendChild(r));
-}}
-</script>
-</body></html>"""
-
