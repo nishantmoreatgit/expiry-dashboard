@@ -12,10 +12,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # गिटहबच्या नवीन सिस्टीमवर Node 24 फोर्स करण्याचा अधिकृत नियम
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
