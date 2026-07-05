@@ -2,7 +2,7 @@ name: Update Live Expiry Dashboard
 
 on:
   schedule:
-    - cron: '0 11 * * 1-5' # सोमवार ते शुक्रवार भारतीय वेळेनुसार दुपारी ४:३० वाजता (UTC 11:00 AM)
+    - cron: '0 11 * * 1-5' # सोमवार ते शुक्रवार दुपारी ४:३० वाजता (IST)
   workflow_dispatch: # मॅन्युअली रन करण्यासाठी बटण
 
 jobs:
@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4 # व्हर्जन v3 वरून v4 केले (Node 24 सुसंगत)
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5 # व्हर्जन v4 वरून v5 केले (Node 24 सुसंगत)
       with:
         python-version: '3.10'
 
@@ -25,7 +25,7 @@ jobs:
       run: python cloud_expiry.py
 
     - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
+      uses: peaceiris/actions-gh-pages@v4 # व्हर्जन v3 वरून v4 केले
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./
