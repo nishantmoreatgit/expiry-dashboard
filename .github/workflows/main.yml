@@ -23,16 +23,12 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install pandas fyers-apiv3 pyotp cryptography requests
+        pip install pandas fyers-apiv3 requests
 
     - name: Run Script
-      # येथे आपण गिटहब लॉकरमधील सिक्रेट्स पायथन कोडला पास करत आहोत
       env:
         FY_SECRET_KEY: ${{ secrets.FY_SECRET_KEY }}
-        FY_USER_ID: ${{ secrets.FY_USER_ID }}
-        FY_PIN: ${{ secrets.FY_PIN }}
-        FY_TOTP_KEY: ${{ secrets.FY_TOTP_KEY }}
+        FY_REFRESH_TOKEN: ${{ secrets.FY_REFRESH_TOKEN }} # परमनंट रिफ्रेश टोकन पास केला
       run: python cloud_expiry.py
 
     - name: Commit & Push index.html
