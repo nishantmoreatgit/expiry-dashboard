@@ -23,7 +23,7 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        pip install pandas fyers-apiv3
+        pip install pandas fyers-apiv3 pyotp
 
     - name: Run Script
       run: python cloud_expiry.py
