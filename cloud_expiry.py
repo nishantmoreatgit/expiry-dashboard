@@ -81,7 +81,7 @@ except: pass
 
 # जर ऑटोमॅटिक टोकन नसेल तर तुमची मुख्य व्हेरिएबल व्हॅल्यू
 if not access_token:
-    access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiZDoxIiwiZDoyIiwieDowliwieDoxIiwieDoyI10sImF0X2hhc2gi0iJnQUFBQUFCcVNVUjJHV1BFRTdhU2RuOV9ESXpQV1dSaXljSmE5ZnVsV3dud1luZzVCYkZMZmRCNmFOeGM0cG1oX0tNbVk0dlZtYzdWNVVfYmNXS0d1WTZMeGc0Q0UwaUw2LWVJdzduQlpURS1iSnZfcmEwWklaRT0iLCJkaXNwbGF5X25hbWUiOiIiLCJvbXMiOiJLMSIsImhzbV9rZXkiOiIxNTU0YzUxMDE4YTIzOTFjNjFiNTU0NTM3MGM5MDNkMWJjYmQ3MzBkODQ1YzBiYWJmYmY4MGQ3NyIsImlzRGRwaUVuYWJsZWQiOiJOIiwiaXNNdGZFbmFibGVkIjoiTiIsImZ5X2lkIjoiRk4xMDY1IiwiYXBwVHlwZSI6MTAwLCJleHAiOjE3ODMyMTE0MDASImF0IjoxNzgzMTg2NTUwLCJzdWIiOiJhY2Nlc3NfdG9rZW4ifQ.pp7d8h61Y1TYC-48518ptstpZ7n4AwPzhZZz9dNsg8c"
+    access_token = ""EXPIRED_TOKEN""
 
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
 
