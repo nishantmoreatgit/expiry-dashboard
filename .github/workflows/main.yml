@@ -5,15 +5,8 @@ on:
     - cron: '0 11 * * 1-5' # सोमवार ते शुक्रवार दुपारी ४:३० वाजता (IST)
   workflow_dispatch: # मॅन्युअली रन करण्यासाठी बटण
 
-# गिटहब पेजेसवर फाईल अपलोड आणि पब्लिश करण्यासाठी लागणाऱ्या अधिकृत परवानग्या
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  contents: write
 
 jobs:
   build:
@@ -21,10 +14,10 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v4 # लेटेस्ट व्हर्जन (Node 24 सुसंगत)
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v5 # लेटेस्ट व्हर्जन (Node 24 सुसंगत)
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
@@ -35,13 +28,10 @@ jobs:
     - name: Run Script
       run: python cloud_expiry.py
 
-    - name: Setup Pages
-      uses: actions/configure-pages@v5
-
-    - name: Upload Artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: '.' # चालू फोल्डरमधील index.html सिलेक्ट करेल
-
-    - name: Deploy to GitHub Pages
-      uses: actions/deploy-pages@v4 # गिटहबचे स्वतःचे अधिकृत पेजेस डिप्लॉयमेंट टूल
+    - name: Commit & Push index.html
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@://github.com'
+        git add docs/index.html
+        git commit -m "Auto updated index.html dashboard" || echo "No changes to commit"
+        git push
