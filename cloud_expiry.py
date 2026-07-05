@@ -112,8 +112,8 @@ function sortTable(thEl, colIndex) {{
 }}
 </script></body></html>"""
 
-# गिटहब पेजेससाठी 'docs' फोल्डर बनवून त्यात index.html सेव्ह करणे
-os.makedirs("docs", exist_on_drop=True)
+# येथे 'exist_ok=True' दुरुस्त केले आहे
+os.makedirs("docs", exist_ok=True)
 with open("docs/index.html", "w", encoding="utf-8") as f: 
     f.write(full_template)
 print("index.html successfully created inside docs folder!")
