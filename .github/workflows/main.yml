@@ -13,17 +13,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    # 🚀 गिटहबच्या नवीन सिस्टीमवर Node 24 फोर्स करून एरर ब्लॉक करण्याचा अधिकृत नियम
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4 # लेटेस्ट व्हर्जन (Node 24 सुसंगत)
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v5 # लेटेस्ट व्हर्जन (Node 24 सुसंगत)
       with:
         python-version: '3.10'
 
     - name: Install Dependencies
       run: |
+        python -m pip install --upgrade pip
         pip install pandas fyers-apiv3 requests
 
     - name: Run Script
