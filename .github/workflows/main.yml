@@ -5,20 +5,26 @@ on:
     - cron: '0 11 * * 1-5' # सोमवार ते शुक्रवार दुपारी ४:३० वाजता (IST)
   workflow_dispatch: # मॅन्युअली रन करण्यासाठी बटण
 
+# गिटहब पेजेसवर फाईल अपलोड आणि पब्लिश करण्यासाठी लागणाऱ्या अधिकृत परवानग्या
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    
-    # गिटहबच्या नवीन सिस्टीमला जुने व्हर्जन चालवण्यासाठीची अधिकृत परवानगी (मास्टर की)
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4 # लेटेस्ट व्हर्जन (Node 24 सुसंगत)
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5 # लेटेस्ट व्हर्जन (Node 24 सुसंगत)
       with:
         python-version: '3.10'
 
@@ -29,8 +35,13 @@ jobs:
     - name: Run Script
       run: python cloud_expiry.py
 
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+
+    - name: Upload Artifact
+      uses: actions/upload-pages-artifact@v3
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./
+        path: '.' # चालू फोल्डरमधील index.html सिलेक्ट करेल
+
+    - name: Deploy to GitHub Pages
+      uses: actions/deploy-pages@v4 # गिटहबचे स्वतःचे अधिकृत पेजेस डिप्लॉयमेंट टूल
