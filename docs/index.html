@@ -1,25 +1,2 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Live Options & Expiry Dashboard</title>
-<style>
-body { font-family: -apple-system, sans-serif; background-color: #f4f6f9; padding: 20px; }
-.container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-h2, h3 { text-align: center; color: #0056b3; margin-top: 30px; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 30px; }
-th, td { padding: 12px 15px; border: 1px solid #dee2e6; text-align: center; }
-th { background-color: #007bff; color: white; cursor: pointer; }
-tr:nth-child(even) { background-color: #f8f9fa; }
-</style></head><body><div class="container"><h2>📊 LIVE OPTIONS & EXPIRES ALL-IN-ONE DASHBOARD</h2>NoneNoneNone</div>
-<script>
-function sortTable(thEl, colIndex) {
-    const table = thEl.closest('table');
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    thEl.asc = !thEl.asc;
-    rows.sort((rA, rB) => {
-        let vA = rA.querySelectorAll('td')[colIndex].getAttribute('data-val') || rA.querySelectorAll('td')[colIndex].innerText;
-        let vB = rB.querySelectorAll('td')[colIndex].getAttribute('data-val') || rB.querySelectorAll('td')[colIndex].innerText;
-        return (isNaN(vA) || isNaN(vB)) ? vA.localeCompare(vB) : parseFloat(vA) - parseFloat(vB);
-    });
-    if (!thEl.asc) rows.reverse();
-    rows.forEach(r => tbody.appendChild(r));
-}
-</script></body></html>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Live Dashboard</title>
+<style>body { font-family: sans-serif; background-color: #f4f6f9; padding: 20px; } .container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; } h2, h3 { text-align: center; color: #0056b3; } table { width: 100%; border-collapse: collapse; margin-bottom: 30px; } th, td { padding: 12px; border: 1px solid #dee2e6; text-align: center; } th { background-color: #007bff; color: white; } tr:nth-child(even) { background-color: #f8f9fa; }</style></head><body><div class="container"><h2>📊 LIVE OPTIONS & EXPIRES MASTER DASHBOARD</h2></div></body></html>
