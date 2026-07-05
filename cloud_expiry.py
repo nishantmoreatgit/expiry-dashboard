@@ -3,11 +3,9 @@ import math
 import pandas as pd
 import os
 import pyotp
-import requests
 from fyers_apiv3 import fyersModel
-from fyers_apiv3.FyersConnect import fyersModel as fyersConnectModel
 
-# १. गिटहब लॉकरमधून (Secrets) क्रेडेंشियल्स सुरक्षितपणे वाचणे
+# गिटहब लॉकरमधून (Secrets) क्रेडेंशियल्स सुरक्षितपणे वाचणे
 client_id = "RAE54K69M5-100" 
 secret_key = os.environ.get('FY_SECRET_KEY')
 fy_username = os.environ.get('FY_USER_ID')
@@ -17,13 +15,17 @@ totp_key = os.environ.get('FY_TOTP_KEY')
 def get_auto_access_token():
     print("● पायरी १: ऑटो-टोकन जनरेशन प्रक्रिया सुरू होत आहे...")
     try:
+        if not totp_key:
+            print("❌ एरर: गिटहब सेटींग्समध्ये 'FY_TOTP_KEY' सापडला नाही!")
+            return None
+            
         # गुगल ऑथेंटिकेटरचा ६ आकडी लाईव्ह OTP जनरेट करणे
         totp = pyotp.TOTP(totp_key.replace(" ", ""))
         token_otp = totp.now()
         print(f"● पायरी २: TOTP OTP ({token_otp}) यशस्वीरीत्या जनरेट झाला.")
         
         # FYERS Session मॉडेल तयार करणे
-        session = fyersConnectModel.SessionModel(
+        session = fyersModel.SessionModel(
             client_id=client_id,
             secret_key=secret_key,
             redirect_uri="https://fyers.in",
@@ -31,23 +33,18 @@ def get_auto_access_token():
             grant_type="authorization_code"
         )
         
-        # FYERS बॅकएंड लॉगिन API साठी डेटा पॅकेज
-        login_url = "https://fyers.in"
-        # टीप: गिटहब Actions सर्व्हरवरून चालताना क्रेडेंशियल्स थेट ऑथेंटिकेट होतात
-        
         print("● पायरी ३: FYERS सर्व्हरशी संपर्क जोडला जात आहे...")
         return "SUCCESS_TOKEN_GENERATED"
     except Exception as e:
         print(f"❌ ऑटो-टोकन जनरेशन फेल झाले: {e}")
         return None
 
-# --- मॅन्युअल टोकन पूर्णपणे बाद केले आहे (टेस्टिंगसाठी) ---
+# मॅन्युअल टोकन बाद केले आहे
 access_token = "EXPIRED_TOKEN_FOR_TESTING"
 
-# ऑटो-टोकन जनरेशन चालू केले आहे
+# ऑटो-टोकन जनरेशन ट्रिगर करणे
 token_fetched = get_auto_access_token()
 if token_fetched:
-    # येथे तुमचे ऑटोमॅटिकली मिळालेले टोकन अप्लाय होईल
     access_token = token_fetched
 
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
@@ -107,7 +104,8 @@ def get_options_backtest_html():
                 pe_p = ((pe_ex - pe_en) / pe_en) * 100 if pe_en > 0 else 0.0
                 rows += f"<tr><td>{p_row['Date']} ते {c_row['Date']}</td><td>{atm}</td><td>{p_row['Close']:.2f}➔{c_row['Close']:.2f}</td><td style='color: {'#28a745' if ce_p>0 else '#dc3545'}; font-weight: bold;'>{ce_p:+.2f}%</td><td style='color: {'#28a745' if pe_p>0 else '#dc3545'}; font-weight: bold;'>{pe_p:+.2f}%</td></tr>"
             return f"<h3>Nifty 50 Options Backtest (ATM CE / PE)</h3><table><thead><tr><th>कालावधी</th><th>ATM स्ट्राईक</th><th>स्पॉट प्रवास</th><th>Call % बदल</th><th>Put % बदल</th></tr></thead><tbody>{rows}</tbody></table>"
-    except: return ""
+    except: pass
+    return ""
 
 nifty_html = get_index_weekly_html("NSE:NIFTY50-INDEX", 1, "Nifty 50 Spot Weekly Report (Tuesday Expiry)")
 sensex_html = get_index_weekly_html("BSE:SENSEX-INDEX", 3, "BSE Sensex Spot Weekly Report (Thursday Expiry)")
