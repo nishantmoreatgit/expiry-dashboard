@@ -5,8 +5,8 @@ import sys
 import pyotp
 import requests
 import pandas as pd
-from fyers_apiv3 import fyersModel
-from fyers_apiv3.FyersConnect import session
+# ✅ नवीन व्हर्जननुसार सुधारित इम्पोर्ट स्ट्रक्चर
+from fyers_apiv3 import fyersModel, session
 
 # =====================================================================
 # 🔐 गिटहब सिक्रेट्स (Secrets) मधून क्रेडेंशियल्स वाचणे
@@ -19,7 +19,7 @@ fyers_id = os.environ.get('FYERS_ID')
 redirect_uri = "https://fyers.in"
 
 def get_automated_access_token():
-    """स्वयंचलितपणे रोजचा नवीन टोकन तयार करणारी सिस्टीम"""
+    """स्वयंचलितपणे रोजचा नवीन टोकन तयार करणारी सिस्टीม"""
     try:
         if not all([client_id, secret_key, totp_key, pin, fyers_id]):
             print("❌ चूक: गिटहब सिक्रेट्समध्ये (FY_APP_ID, FY_SECRET_KEY, etc.) माहिती सेट करायची राहिली आहे!")
@@ -64,16 +64,16 @@ def get_automated_access_token():
             print(f"❌ पायरी ४ (OAuth Error): ऑथ कोड मिळाला नाही. फियर्स रिस्पॉन्स -> {res_oauth}")
             return None
 
-        # ✅ पायरी ४.५: स्ट्रिंग स्प्लिटिंग पूर्णपणे दुरुस्त (स्ट्रिंग स्वरूपात कोड काढणे)
+        # पायरी ४.५: स्ट्रिंग स्प्लिट करून ऑथ कोड काढणे
         try:
             url_parts = target_url.split('auth_code=')
             auth_code = url_parts[1].split('&')[0]
-            print(f"🔍 एक्स्ट्रॅक्ट केलेला ऑथ कोड (Auth Code): {auth_code[:5]}...")
+            print(f"🔍 ऑथ कोड (Auth Code) मिळाला.")
         except Exception as e_split:
             print(f"❌ ऑथ कोड स्प्लिट करताना एरर आली: {e_split} | URL: {target_url}")
             return None
 
-        # पायरी ५: फायर्स SDK चा वापर करून फायनल ॲक्सेस टोकन मिळवणे
+        # ✅ पायरी ५: सुधारित session मॉड्यूलचा वापर करून फायनल ॲक्सेस टोकन मिळवणे
         fyers_session = session.FyersSession(
             client_id=client_id, secret_key=secret_key,
             redirect_uri=redirect_uri, response_type="code"
@@ -142,5 +142,5 @@ def get_index_weekly_html(symbol, expiry_day, title):
         print(f"❌ हिस्ट्री API कॉल अयशस्वी: {e_hist}")
         return f"<div>⚠️ एक्सेप्शन एरर: {str(e_hist)}</div>"
 
-# चाचणी रन (Test Run)
+# टेस्ट रन
 html_table = get_index_weekly_html("NSE:NIFTY50-INDEX", "Thursday", "Nifty 50 Weekly")
