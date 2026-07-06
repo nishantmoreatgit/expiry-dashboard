@@ -2,7 +2,7 @@ name: Fetch Fyers Live Data
 
 on:
   schedule:
-    # 📊 Runs every 5 minutes during Indian market hours (Mon-Fri)
+    # 📊 सोमवार ते शुक्रवार, भारतीय वेळेनुसार सकाळी ८:४५ ते दुपारी ३:४५ दरम्यान दर ५ मिनिटांनी धावेल (Watch Function Active)
     - cron: '*/5 3-10 * * 1-5'
   push:
     branches: [ main ]
@@ -41,26 +41,24 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
-      # 🎯 GUARANTEED FIX: Explicitly prevents Git from throwing Exit Code 1 when changes are identical
+      # 🎯 डेटा बदलला नाही तरी exit code 1 न देणारी सुरक्षित कमिट स्टेप
       - name: Commit and Force Sync Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
           
-          # Stage the production dashboard file
           git add index.html
           
-          # Check changes explicitly using porcelain status strings
+          # फक्त index.html मध्ये बदल झाला असेल तरच कमिट होईल, अन्यथा सुरक्षितपणे पुढे जाईल
           if [ -n "$(git status --porcelain index.html)" ]; then
-            echo "✅ New market movements detected. Updating dashboard tracking repository..."
+            echo "✅ नवीन डेटा आढळला! डॅशबोर्ड अपडेट करत आहे..."
             git commit -m "📊 Live Dashboard Sync: $(date)"
             git stash --include-untracked
             git pull --rebase origin main -X ours
             git push origin main
             git stash pop || true
           else
-            # 🚀 Forces a clean shell exit code 0 status
-            echo "ℹ️ Dashboard prices are already up to date. Skipping commit to prevent empty tree crashes."
+            echo "ℹ️ डॅशबोर्ड आधीपासूनच अपडेटेड आहे. कोणताही एरर न दाखवता पुढे जात आहे."
           fi
 
       - name: Upload Artifact
