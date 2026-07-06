@@ -32,13 +32,13 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
-      # 🎯 पायरी १: बदललेली index.html गिटहबवर परमनंट सेव्ह करणे
+      # 🎯 Updated Commit Step to force-capture index layout adjustments
       - name: Commit Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
-          git add index.html
-          git diff-index --quiet HEAD || git commit -m "📊 डॅशबोर्ड डेटा अपडेट केला"
+          git add -A  # 👈 Captures all workspace shifts cleanly
+          git diff-index --quiet HEAD || git commit -m "📊 Updated Live Dashboard Matrix Data"
           git push origin main
 
       # 🎯 पायरी २: थेट गिटहब सर्व्हरवर नवीन पेज डिप्लॉय करणे (बदलांसाठी १ सेकंद लागेल)
