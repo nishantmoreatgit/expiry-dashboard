@@ -38,28 +38,21 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
-      # 🎯 FIXED HERE: Stashes runtime log noise to guarantee a clean server push
-      - name: Commit and Push Changes
+      - name: Commit and Force Sync Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
           
-          # 1. Stage ONLY your production dashboard file
-          git add index.html
+          # Clean temp logs to allow pure push profiles
+          git restore .fyersRequests.log || true
           
-          if ! git diff-index --quiet HEAD; then
-            git commit -m "📊 Updated Live Dashboard Matrix Data"
-            
-            # 2. Clear out temp log files to allow a perfect merge
-            git restore . || true
-            git clean -fdx || true
-            
-            # 3. Pull latest remote records and push seamlessly
-            git pull --rebase origin main
-            git push origin main
-          else
-            echo "No visual changes discovered in dashboard index files."
-          fi
+          # Force capture index transitions
+          git add index.html
+          git commit -m "📊 Live Dashboard Sync: $(date)"
+          
+          # Sync and override remote branches directly
+          git pull --rebase origin main -X ours
+          git push origin main
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
