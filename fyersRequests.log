@@ -2,3 +2,4 @@
 {"level":"DEBUG","location":"[get_call:167] fyersModel","message":{"Status Code":200,"API":"/history"},"timestamp":"2026-07-06 06:14:37,791+0000","service":"FyersAPIRequest"}
 {"level":"DEBUG","location":"[get_call:167] fyersModel","message":{"Status Code":200,"API":"/history"},"timestamp":"2026-07-06 06:31:18,813+0000","service":"FyersAPIRequest"}
 {"level":"DEBUG","location":"[get_call:167] fyersModel","message":{"Status Code":200,"API":"/history"},"timestamp":"2026-07-06 06:35:06,482+0000","service":"FyersAPIRequest"}
+{"level":"DEBUG","location":"[get_call:167] fyersModel","message":{"Status Code":200,"API":"/history"},"timestamp":"2026-07-06 06:40:00,016+0000","service":"FyersAPIRequest"}
