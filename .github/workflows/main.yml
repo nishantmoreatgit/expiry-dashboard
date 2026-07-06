@@ -57,12 +57,16 @@ jobs:
             echo "ℹ️ डॅशबोर्ड आधीपासूनच अपडेटेड आहे."
           fi
 
-      # 🎯 फिक्स: डिप्लॉयमेंट जलद होण्यासाठी फक्त आणि फक्त index.html अपलोड करणे
+      # 🎯 अचूक दुरुस्ती: तात्पुरत्या फोल्डरमध्ये फक्त index.html ठेवून तो अपलोड करणे
+      - name: Prepare Pages Artifact
+        run: |
+          mkdir public
+          cp index.html public/
+
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
-          file: 'index.html'
+          path: './public' # 👈 फक्त नवीन तयार झालेली index.html अपलोड होईल
 
   deploy:
     environment:
