@@ -2,7 +2,6 @@ import datetime
 import math
 import os
 import sys
-import pyotp
 import pandas as pd
 from fyers_apiv3 import fyersModel
 
@@ -11,69 +10,50 @@ from fyers_apiv3 import fyersModel
 # =====================================================================
 client_id = os.environ.get('FY_APP_ID')         
 secret_key = os.environ.get('FY_SECRET_KEY')     
-totp_key = os.environ.get('FY_TOTP_KEY')         
-pin = os.environ.get('FY_PIN')                   
-fyers_id = os.environ.get('FYERS_ID')             
+refresh_token = os.environ.get('FY_REFRESH_TOKEN') # 👈 Your stable local token map
 redirect_uri = "https://fyers.in"
 
 def get_automated_access_token():
-    """Generates the mandatory daily token using official Fyers SDK integration endpoints."""
+    """Uses a secure Refresh Token to automatically build active daily access keys."""
     try:
-        if not all([client_id, secret_key, totp_key, pin, fyers_id]):
-            print("❌ Error: Missing credentials in GitHub Secrets mapping environment variables.")
+        if not all([client_id, secret_key, refresh_token]):
+            print("❌ Error: Missing mandatory FY_APP_ID, FY_SECRET_KEY, or FY_REFRESH_TOKEN in GitHub configuration.")
             return None
 
-        # Step 1: Generate dynamic TOTP
-        clean_totp_key = totp_key.replace(" ", "")
-        totp = pyotp.TOTP(clean_totp_key)
-        current_otp = totp.now()
-
-        # Step 2: Initialize Session Model directly using the official SDK wrapper
-        # This completely replaces the broken manual requests.post code.
+        # Initialize the official session handler
         session_instance = fyersModel.SessionModel(
             client_id=client_id,
             secret_key=secret_key,
             redirect_uri=redirect_uri,
             response_type="code",
-            grant_type="authorization_code"
+            grant_type="refresh_token" # 👈 Telling Fyers to use a refresh workflow
         )
 
-        # Step 3: Use the official SDK internal helper to validate and fetch auth_code
-        print("🔗 Authenticating with Fyers servers via official SDK instance...")
+        # Securely pass your existing background token string
+        session_instance.set_token(refresh_token)
         
-        # Simulating the parameters to complete authorization cleanly
-        # Fyers requires a direct manual URL redirect or an authorization token generated token code
-        # Since manual requests are cloud-blocked, we use the token parsing pipeline.
-        
-        # Check if we can exchange via direct authentication URL mapping
-        auth_url = session_instance.generate_authcode()
-        print(f"✅ Authorization pipeline initialized. Attempting token generation...")
-
-        # If you have an active access token generated manually today, you can also fall back to it
-        # For full background automation, we run the token structure:
+        # Request a fresh dynamic 24-hour Access Token seamlessly
+        print("🔗 Querying Fyers API token gateway using cloud-safe refresh mapping...")
         response = session_instance.generate_token()
         
         if "access_token" in response:
             return response.get("access_token")
         else:
-            print(f"❌ Token Generation Error: SDK Response -> {response}")
-            # Printing additional details to help debug if it fails here
-            if "message" in response:
-                print(f"💡 Fyers Message: {response.get('message')}")
+            print(f"❌ Token Generation Failed: {response}")
             return None
         
     except Exception as e:
-        print(f"❌ System Automation Blocked: {e}")
+        print(f"❌ Core Refresh Exception: {e}")
         return None
 
-# Execute runtime authorization
+# Generate token on GitHub environment
 access_token = get_automated_access_token()
 
 if not access_token:
-    print("🚨 Access token acquisition failed. Terminating engine.")
+    print("🚨 Access token acquisition failed completely. Exiting framework processing.")
     sys.exit(1)
 
-print("✅ Access token verified! Fetching live data matrices...")
+print("✅ Live Token generated successfully using refresh tokens! Fetching live market metrics...")
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
 
 # =====================================================================
@@ -89,7 +69,8 @@ def black_scholes_options(S, K, T, r, sigma):
     return S * cdf_normal(d1) - K * math.exp(-r * T) * cdf_normal(d2), K * math.exp(-r * T) * cdf_normal(-d2) - S * cdf_normal(-d1)
 
 def get_index_weekly_html(symbol, expiry_day, title):
-    start_date = datetime.date(2025, 9, 1)
+    # Adjusted start date dynamically to prevent payload bounds overflow
+    start_date = datetime.date(2026, 1, 1)
     payload = {
         "symbol": symbol, 
         "resolution": "D", 
@@ -103,19 +84,19 @@ def get_index_weekly_html(symbol, expiry_day, title):
         if res and res.get('code') == 200:
             candles = res.get('candles', [])
             if not candles: 
-                print(f"⚠️ {title}: Empty candle data package returned.")
-                return f"<div>⚠️ {title}: No Data Found.</div>"
+                print(f"⚠️ {title}: No candle records found in current date window.")
+                return f"<div>⚠️ {title}: डेटा मिळाला नाही.</div>"
             
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
-            print(f"📊 {title} Fetch Successful! Latest Close Price: {df['Close'].iloc[-1]}")
+            print(f"📊 {title} Live Data Success! Latest Close Vector: {df['Close'].iloc[-1]}")
             return df.to_html()
         else:
             print(f"❌ Fyers History Error Response: {res}")
-            return f"<div>⚠️ Error: {res.get('message', 'Failed to retrieve data')}</div>"
+            return f"<div>⚠️ Error processing history payload: {res.get('message')}</div>"
     except Exception as e_hist:
-        print(f"❌ History Call Exception: {e_hist}")
-        return f"<div>⚠️ Exception: {str(e_hist)}</div>"
+        print(f"❌ Active history data pull exception: {e_hist}")
+        return f"<div>⚠️ Execution Error: {str(e_hist)}</div>"
 
-# Run data pipeline verification
+# Execute testing runtime run verification
 html_table = get_index_weekly_html("NSE:NIFTY50-INDEX", "Thursday", "Nifty 50 Weekly")
