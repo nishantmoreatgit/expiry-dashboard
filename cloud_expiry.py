@@ -15,7 +15,7 @@ if not client_id or not access_token:
     print("❌ एरर: गिटहब सिक्रेट्समधून App ID किंवा Access Token मिळाला नाही!")
     sys.exit(1)
 
-print("✅ क्रेडेंशियल्स मिळाले! १-मिनिट लाईव्ह टिक इंजिन सुरू करत आहे...")
+print("✅ क्रेडेंशियल्स मिळाले! १-मिनिट रिअल-टाइम टिक इंजिन सुरू करत आहे...")
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
 
 # =====================================================================
@@ -42,7 +42,7 @@ def force_rebuild_dashboard():
         if live_res and live_res.get('code') == 200:
             live_candles = live_res.get('candles', [])
             if live_candles:
-                # ✅ फिक्स: [Timestamp, Open, High, Low, Close, Volume] मधून Index 4 (Close) काढला
+                # ✅ फिक्स: latest_candle मधील Index 4 वर असलेली 'Close Price' अचूकपणे काढली!
                 latest_candle = live_candles[-1]
                 live_close = float(latest_candle[4])
                 print(f"🎯 १-मिनिट कॅंडलमधून मिळालेला थेट लाईव्ह बाजारभाव: {live_close}")
@@ -127,11 +127,11 @@ def force_rebuild_dashboard():
             <tr><th>तारीख ▲▼</th><th>क्लोज प्राईस ▲▼</th><th>बदल % ▲▼</th></tr>
         </thead>
         <tbody>
-            {html_rows}
+            {{html_rows}}
         </tbody>
     </table>
 </body>
-</html>"""
+</html>""".replace("{html_rows}", html_rows)
             return full_master_dashboard
         else:
             print(f"❌ फियर्स API कडून एरर आली: {res}")
@@ -150,6 +150,6 @@ if fresh_dashboard_html:
     try:
         with open(target_file, "w", encoding="utf-8") as f:
             f.write(fresh_dashboard_html)
-        print(f"💾 यशस्वी: {target_file} फाईल नवीन १-मिनिट लाइव्ह डेटासह अद्ययावत केली आहे!")
+        print(f"💾 यशस्वी: {target_file} फाईल नवीन रिअल-टाइम लाइव्ह डेटासह अद्ययावत केली आहे!")
     except Exception as e:
         print(f"❌ फाईल सेव्ह करताना त्रुटी आली: {e}")
