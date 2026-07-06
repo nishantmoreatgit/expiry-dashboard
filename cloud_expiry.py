@@ -6,23 +6,23 @@ import pandas as pd
 from fyers_apiv3 import fyersModel
 
 # =====================================================================
-# 🔐 गिटहब सिक्रेट्समधून थेट चालू लाइव्ह टोकन वाचणे
+# 🔐 Fetch secure runtime token environments
 # =====================================================================
 client_id = os.environ.get('FY_APP_ID')         
 access_token = os.environ.get('FY_LIVE_TOKEN')   
 
 if not client_id or not access_token:
-    print("❌ एरर: गिटहब सिक्रेट्समधून App ID किंवा Access Token मिळाला नाही!")
+    print("❌ Error: Missing configuration parameters in environment maps.")
     sys.exit(1)
 
-print("✅ क्रेडेंशियल्स मिळाले! फियर्स इंजिन सुरू करत आहे...")
+print("✅ Credentials verified! Initializing Fyers client channel...")
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
 
 # =====================================================================
-# 📊 डेटा फेचिंग आणि नवीन कोरी HTML डॅशबोर्ड जनरेशन सिस्टीम
+# 📊 Process historical candle records and structure metrics
 # =====================================================================
-def force_rebuild_dashboard():
-    # मागील ९० दिवसांचा संपूर्ण डेटा सिंक करणे
+def generate_live_dashboard():
+    # Dynamic date window generation
     start_date = datetime.date.today() - datetime.timedelta(days=90)
     payload = {
         "symbol": "NSE:NIFTY50-INDEX", 
@@ -37,36 +37,30 @@ def force_rebuild_dashboard():
         if res and res.get('code') == 200:
             candles = res.get('candles', [])
             if not candles: 
-                print("⚠️ फियर्स कडून डेटा ब्लँक मिळाला.")
+                print("⚠️ No data chunks found inside history matrix.")
                 return None
             
-            # डेटा फ्रेम सिस्टीम
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
             
-            # बदल टक्केवारी काढणे
             df['Prev_Close'] = df['Close'].shift(1)
             df['Change_Pct'] = ((df['Close'] - df['Prev_Close']) / df['Prev_Close']) * 100
-            
-            # डेटा रिव्हर्स करणे (जेणेकरून आजची तारीख वर दिसेल)
             df = df.iloc[::-1]
             
             html_rows = ""
             
-            # 🎯 १. लाइव्ह ओळ काढणे (पायथन इंडेक्सिंग त्रुटी दुरुस्त केली)
+            # 1. Generate active top live row block
             live_close = df['Close'].iloc[0]
             live_change = df['Change_Pct'].iloc[0]
             
-            # जर आज सुट्टी असेल किंवा डेटा अपडेट नसेल, तरीही क्रॅश रोखणे
             if pd.isna(live_change):
                 live_change = 0.0
                 
             change_color = "green" if live_change >= 0 else "red"
             sign = "+" if live_change >= 0 else ""
-            
             html_rows += f"<tr style='background-color: #ffe6e6; font-weight: bold;'><td>🔴 CLOUD LIVE (Last Fetch)</td><td>{live_close:,.2f} (Today)</td><td style='color: {change_color};'>{sign}{live_change:.2f}%</td></tr>\n"
             
-            # 🎯 २. ऐतिहासिक मंगळवार फिल्टर (Tuesday Expiry डाटा मॅपिंग)
+            # 2. Extract historical Tuesday expirations
             for _, row in df.iloc[1:].iterrows():
                 dt = pd.to_datetime(row['Date'])
                 if dt.strftime('%a') == "Tue":
@@ -74,13 +68,13 @@ def force_rebuild_dashboard():
                     row_sign = "+" if row['Change_Pct'] >= 0 else ""
                     html_rows += f"<tr><td>{row['Date']} (Tue)</td><td>{row['Close']:,.2f}</td><td style='color: {row_color};'>{row_sign}{row['Change_Pct']:.2f}%</td></tr>\n"
             
-            # 🎯 संपूर्ण नवीन स्वतंत्र टेम्पलेट जनरेशन (जुन्या फाईलवर अवलंबून राहणे बंद)
-            full_master_dashboard = f"""<!DOCTYPE html>
+            # Complete independent framework page layout template
+            full_master_page = f"""<!DOCTYPE html>
 <html lang="mr">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="refresh" content="60">
-    <title>CLOUD LIVE INTRA-DAY MASTER DASHBOARD</title>
+    <title>=== 📊 CLOUD LIVE INTRA-DAY MASTER DASHBOARD ===</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 20px; background-color: #f9f9f9; }}
         table {{ border-collapse: collapse; width: 100%; max-width: 800px; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
@@ -102,25 +96,24 @@ def force_rebuild_dashboard():
     </table>
 </body>
 </html>"""
-            return full_master_dashboard
+            return full_master_page
         else:
-            print(f"❌ फियर्स API कडून एरर आली: {res}")
+            print(f"❌ Fyers Error tracking channel: {res}")
             return None
     except Exception as e:
-        print(f"❌ डेटा कॅल्क्युलेशन क्रॅश झाले: {e}")
+        print(f"❌ Critical runtime core exception: {e}")
         return None
 
 # =====================================================================
-# 💾 थेट फाईल ओव्हरराईट करणे (Force Override Engine)
+# 💾 Execute Absolute File Overwrite Array Sync
 # =====================================================================
-fresh_dashboard_html = force_rebuild_dashboard()
+updated_dashboard_html = generate_live_dashboard()
 
-if fresh_dashboard_html:
+if updated_dashboard_html:
     target_file = "index.html"
     try:
-        # कोणतीही जुनी व्हॅल्यू न तपासता थेट फाईल नवीन डेटाने बदलणे
         with open(target_file, "w", encoding="utf-8") as f:
-            f.write(fresh_dashboard_html)
-        print(f"💾 यशस्वी: {target_file} फाईल नवीन लाईव्ह डेटासह पूर्ण बदलली आहे!")
+            f.write(updated_dashboard_html)
+        print(f"💾 Success: Fresh dataset hard-written over {target_file} layout space!")
     except Exception as e:
-        print(f"❌ फाईल सेव्ह करताना त्रुटी आली: {e}")
+        print(f"❌ Write permission dropped: {e}")
