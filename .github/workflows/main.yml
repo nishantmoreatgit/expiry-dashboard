@@ -38,26 +38,26 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
-      # 🎯 FIXED HERE: Added a secure stash/pop cycle to isolate background runtime log noise
+      # 🎯 पायरी १: गिटहब सर्व्हरवरील कॅश पूर्ण साफ करणे (Clear Cache Environment)
+      - name: Clear GitHub Pages Cache
+        run: |
+          rm -rf .github-pages-repository || true
+
+      # 🎯 पायरी २: बदललेली index.html गिटहबवर परमनंट सेव्ह करणे
       - name: Commit and Force Sync Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
           
-          # 1. Stage and lock only the modified dashboard file
           git add index.html
-          git commit -m "📊 Live Dashboard Sync: $(date)"
+          git commit -m "📊 Live Dashboard Sync: $(date)" || echo "No changes to commit"
           
-          # 2. Stash untracked runtime logs (like fyersRequests.log) out of the way
           git stash --include-untracked
-          
-          # 3. Pull from the server safely and push your live updates
           git pull --rebase origin main -X ours
           git push origin main
-          
-          # 4. Optional: Clean up workspace stash allocation
           git stash pop || true
 
+      # 🎯 पायरी ३: थेट गिटहब सर्व्हरवर नवीन पेज नूतनीकरण करणे
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
