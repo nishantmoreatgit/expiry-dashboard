@@ -10,13 +10,14 @@ permissions:
   pages: write      
   id-token: write
 
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
+  # 🎯 Job 1: Pulls active data, generates the layout, and saves it permanently
   build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-      
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -38,31 +39,35 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
-      # 🎯 पायरी १: गिटहब सर्व्हरवरील कॅश पूर्ण साफ करणे (Clear Cache Environment)
-      - name: Clear GitHub Pages Cache
-        run: |
-          rm -rf .github-pages-repository || true
-
-      # 🎯 पायरी २: बदललेली index.html गिटहबवर परमनंट सेव्ह करणे
       - name: Commit and Force Sync Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
           
           git add index.html
-          git commit -m "📊 Live Dashboard Sync: $(date)" || echo "No changes to commit"
-          
-          git stash --include-untracked
-          git pull --rebase origin main -X ours
-          git push origin main
-          git stash pop || true
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "📊 Live Dashboard Sync: $(date)"
+            git stash --include-untracked
+            git pull --rebase origin main -X ours
+            git push origin main
+            git stash pop || true
+          else
+            echo "No visual changes discovered in dashboard index files."
+          fi
 
-      # 🎯 पायरी ३: थेट गिटहब सर्व्हरवर नवीन पेज नूतनीकरण करणे
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
 
+  # 🎯 Job 2: Waits for Job 1 to finish, then securely deploys the live dashboard
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build  # 👈 Crucial: Waits for the repository changes to save first
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
