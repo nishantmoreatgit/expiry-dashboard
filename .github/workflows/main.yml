@@ -2,7 +2,7 @@ name: Fetch Fyers Live Data
 
 on:
   schedule:
-    # 📊 सोमवार ते शुक्रवार, भारतीय वेळेनुसार सकाळी ८:४५ ते दुपारी ३:४५ दरम्यान दर ५ मिनिटांनी धावेल
+    # 📊 सोमवार ते शुक्रवार, भारतीय वेळेनुसार सकाळी ८:४५ ते दुपारी ३:४५ दरम्यान दर ५ मिनिटांनी ऑटो-रन होईल
     - cron: '*/5 3-10 * * 1-5'
   push:
     branches: [ main ]
@@ -41,12 +41,16 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
+      # 🎯 १००% सुरक्षित आणि दुरुस्त केलेली कमिट स्टेप (यामुळे 'no changes to commit' चा एरर येणार नाही)
       - name: Commit and Force Sync Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
           
+          # १. इंडेक्स फाईल गिटमध्ये स्टेज करणे
           git add index.html
+          
+          # २. फाईलमध्ये काही नवीन बदल झाला आहे का ते तपासणे
           if ! git diff-index --quiet HEAD; then
             git commit -m "📊 Live Dashboard Sync: $(date)"
             git stash --include-untracked
@@ -54,7 +58,8 @@ jobs:
             git push origin main
             git stash pop || true
           else
-            echo "No visual changes discovered in dashboard index files."
+            # ✅ फिक्स: डेटा सारखाच असेल तर कोड क्रॅश न करता सुरक्षितपणे पुढे जाईल
+            echo "डॅशबोर्ड फाईलमध्ये कोणताही नवीन बदल आढळला नाही. डिप्लॉयमेंट सुरू ठेवत आहे."
           fi
 
       - name: Upload Artifact
