@@ -13,7 +13,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # 🎯 FIXED HERE: Explicitly added the required deployment environment
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -21,6 +20,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 🎯 Fetch all history so merge tracking works cleanly
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -37,13 +38,19 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
-      - name: Commit Changes
+      # 🎯 FIXED HERE: Syncs remote history to resolve merge conflicts automatically
+      - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@://github.com"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add -A  
-          git diff-index --quiet HEAD || git commit -m "📊 Updated Live Dashboard Matrix Data"
-          git push origin main
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "📊 Updated Live Dashboard Matrix Data"
+            git pull --rebase origin main # 👈 Pulls server changes safely before pushing
+            git push origin main
+          else
+            print("No visual changes discovered in dashboard index files.")
+          fi
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
