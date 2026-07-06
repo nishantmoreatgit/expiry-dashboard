@@ -6,7 +6,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # 👈 गिटहब डॅशबोर्ड फाईल रायटिंग परमिशन दिली
+  contents: write
+  pages: write      # 👈 गिटहब पेजेस पब्लिश करण्याची अधिकृत परवानगी
+  id-token: write
 
 jobs:
   build:
@@ -30,11 +32,20 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
-      # 🎯 नवीन जोडलेली पायरी: बदललेला डॅशबोर्ड डेटा गिटहबवर सेव्ह करणे
-      - name: Commit and Push Dashboard Changes
+      # 🎯 पायरी १: बदललेली index.html गिटहबवर परमनंट सेव्ह करणे
+      - name: Commit Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
-          git add -A
-          git diff-index --quiet HEAD || git commit -m "📊 डॅशबोर्ड लाइव्ह डेटा अपडेट केला: $(date)"
+          git add index.html
+          git diff-index --quiet HEAD || git commit -m "📊 डॅशबोर्ड डेटा अपडेट केला"
           git push origin main
+
+      # 🎯 पायरी २: थेट गिटहब सर्व्हरवर नवीन पेज डिप्लॉय करणे (बदलांसाठी १ सेकंद लागेल)
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
