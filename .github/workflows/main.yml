@@ -21,7 +21,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # 🎯 Fetch all history so merge tracking works cleanly
+          fetch-depth: 0 
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -38,18 +38,18 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
-      # 🎯 FIXED HERE: Syncs remote history to resolve merge conflicts automatically
+      # 🎯 FIXED HERE: Changed 'print' to 'echo' to fix the bash syntax error
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A  
+          git config --global user.email "github-actions[bot]@://github.com"
+          git add index.html
           if ! git diff-index --quiet HEAD; then
             git commit -m "📊 Updated Live Dashboard Matrix Data"
-            git pull --rebase origin main # 👈 Pulls server changes safely before pushing
+            git pull --rebase origin main
             git push origin main
           else
-            print("No visual changes discovered in dashboard index files.")
+            echo "No visual changes discovered in dashboard index files."
           fi
 
       - name: Upload Artifact
