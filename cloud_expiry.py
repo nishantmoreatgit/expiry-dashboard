@@ -4,79 +4,76 @@ import os
 import sys
 import pyotp
 import requests
+import pandas as pd
 from fyers_apiv3 import fyersModel
 from fyers_apiv3.FyersConnect import session
 
 # =====================================================================
-# 🔐 SECURE CREDENTIALS FROM GITHUB SECRETS
+# 🔐 गिटहब सिक्रेट्स (Secrets) मधून क्रेडेंशियल्स वाचणे
 # =====================================================================
-client_id = os.environ.get('FY_APP_ID')         
-secret_key = os.environ.get('FY_SECRET_KEY')     
-totp_key = os.environ.get('FY_TOTP_KEY')         
-pin = os.environ.get('FY_PIN')                   
-fyers_id = os.environ.get('FYERS_ID')             
+client_id = os.environ.get('FY_APP_ID')         # App ID (उदा. RAE54K69M5-100)
+secret_key = os.environ.get('FY_SECRET_KEY')     # Fyers Secret Key
+totp_key = os.environ.get('FY_TOTP_KEY')         # Fyers TOTP गुगल ऑथेंटिकेटर की
+pin = os.environ.get('FY_PIN')                   # 4-Digit लॉगिन पिन
+fyers_id = os.environ.get('FYERS_ID')             # तुमचा फियर्स युझर आयडी (उदा. XY12345)
 redirect_uri = "https://fyers.in"
 
 def get_automated_access_token():
-    """Simulates a browser login to safely pull the daily access token on GitHub."""
+    """स्वयंचलितपणे रोजचा नवीन टोकन तयार करणारी सिस्टीम"""
     try:
-        # Step 1: Clean and generate TOTP
-        clean_totp_key = totp_key.replace(" ", "") if totp_key else ""
+        if not all([client_id, secret_key, totp_key, pin, fyers_id]):
+            print("❌ चूक: गिटहब सिक्रेट्समध्ये कोणतीतरी माहिती सेट करायची राहिली आहे!")
+            return None
+
+        # पायरी १: गुगल ऑथेंटिकेटरचा लाइव्ह ६ अंकी कोड तयार करणे
+        clean_totp_key = totp_key.replace(" ", "")
         totp = pyotp.TOTP(clean_totp_key)
         current_otp = totp.now()
 
-        # Critical: Browser simulation headers to bypass cloud platform blocks
+        # ब्राउझर सारखे हेडर टाकणे (गिटहब ब्लॉक टाळण्यासाठी)
         headers = {
             'Accept': 'application/json', 
             'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
         
-        # Step 2: Validate TOTP
+        # पायरी २: TOTP व्हॅलिडेट करणे
         payload_totp = {"client_id": client_id, "fyers_id": fyers_id, "totp": current_otp}
         res_totp = requests.post("https://fyers.in", json=payload_totp, headers=headers).json()
         if res_totp.get('s') != 'ok':
-            print(f"❌ TOTP Step Failed: {res_totp}")
+            print(f"❌ TOTP व्हॅलिडेशन अयशस्वी: {res_totp}")
             return None
             
         request_key = res_totp.get('request_key')
 
-        # Step 3: Validate PIN
+        # पायरी ३: ४-अंकी लॉगिन पिन व्हॅलिडेट करणे
         payload_pin = {"client_id": client_id, "request_key": request_key, "pin": pin}
         res_pin = requests.post("https://fyers.in", json=payload_pin, headers=headers).json()
         if res_pin.get('s') != 'ok':
-            print(f"❌ PIN Step Failed: {res_pin}")
+            print(f"❌ PIN व्हॅलिडेशन अयशस्वी: {res_pin}")
             return None
             
         access_token_temp = res_pin.get('data', {}).get('access_token')
 
-        # Step 4: Request OAuth Authorization Link
-        oauth_headers = {
-            'Authorization': f"Bearer {access_token_temp}", 
-            'Content-Type': 'application/json',
-            'User-Agent': headers['User-Agent']
-        }
-        oauth_payload = {
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "response_type": "code",
-            "state": "sample_state"
-        }
+        # पायरी ४: ओ-ऑथ (OAuth) ऑथोरायझेशन लिंक मिळवणे
+        oauth_headers = {'Authorization': f"Bearer {access_token_temp}", 'Content-Type': 'application/json', 'User-Agent': headers['User-Agent']}
+        oauth_payload = {"client_id": client_id, "redirect_uri": redirect_uri, "response_type": "code", "state": "sample_state"}
         res_oauth = requests.post("https://fyers.in", json=oauth_payload, headers=oauth_headers).json()
         
         target_url = res_oauth.get('data', {}).get('redirect_url', '')
         if not target_url or 'auth_code=' not in target_url:
-            print(f"❌ OAuth Extraction Failed. Response received: {res_oauth}")
+            print(f"❌ ऑथ कोड मिळवता आला नाही. फियर्सचा रिस्पॉन्स: {res_oauth}")
             return None
 
-        # Safe parsing fallback to avoid indexing crash (Exit Code 2)
-        try:
-            auth_code = target_url.split('auth_code=')[1].split('&')[0]
-        except IndexError:
-            print(f"❌ Structural crash parsing auth code from URL string: {target_url}")
+        # ✅ सुरक्षित स्ट्रिंग स्प्लिट (यामुळे आधी एरर येत होती)
+        url_parts = target_url.split('auth_code=')
+        if len(url_parts) > 1:
+            auth_code = url_parts[1].split('&')[0]
+        else:
+            print("❌ URL मधून auth_code वेगळा करता आला नाही.")
             return None
 
-        # Step 5: Trade Authentication Token Exchange via SDK
+        # पायरी ५: फायर्स SDK चा वापर करून फायनल ॲक्सेस टोकन मिळवणे
         fyers_session = session.FyersSession(
             client_id=client_id, secret_key=secret_key,
             redirect_uri=redirect_uri, response_type="code"
@@ -86,21 +83,21 @@ def get_automated_access_token():
         return response.get("access_token")
         
     except Exception as e:
-        print(f"❌ Critical Core Exception: {e}")
+        print(f"❌ ऑटोमेशन मध्ये अडथळा आला: {e}")
         return None
 
-# Execution Flow Gateway
+# टोकन जनरेशन सुरू करा
 access_token = get_automated_access_token()
 
 if not access_token:
-    print("🚨 Token acquisition completely failed. Exiting framework processing.")
+    print("🚨 ॲक्सेस टोकन मिळाला नाही. कोड थांबवला जात आहे.")
     sys.exit(1)
 
-print("✅ Live Token Acquired! Querying market database...")
+print("✅ टोकन यशस्वीरित्या मिळाला! लाइव्ह डेटा फेच करत आहे...")
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
 
 # =====================================================================
-# 📈 MATHEMATICAL CALCULATIONS AND DATA FETCH
+# 📈 गणिते आणि डेटा फेचिंग फंक्शन्स (Calculations & Data Fetch)
 # =====================================================================
 def cdf_normal(x):
     return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
@@ -126,20 +123,20 @@ def get_index_weekly_html(symbol, expiry_day, title):
         if res and res.get('code') == 200:
             candles = res.get('candles', [])
             if not candles: 
-                print(f"⚠️ {title}: No candles returned inside history payload.")
+                print(f"⚠️ {title}: कॅंडल्सचा डेटा रिकामा मिळाला.")
                 return f"<div>⚠️ {title}: डेटा मिळाला नाही.</div>"
             
-            # Form complete pandas table cleanly
+            # डेटा फ्रेम तयार करणे आणि अपूर्ण राहिलेला कोड पूर्ण करणे
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
-            print(f"📊 {title} Data Success! Last Close Point: {df['Close'].iloc[-1]}")
+            print(f"📊 {title} डेटा यशस्वीरित्या मिळाला! शेवटची क्लोजिंग किंमत: {df['Close'].iloc[-1]}")
             return df.to_html()
         else:
-            print(f"❌ Market Request Rejected: {res}")
-            return f"<div>⚠️ Error processing metrics: {res.get('message', 'Unknown API Error')}</div>"
+            print(f"❌ फियर्स हिस्ट्री एरर रिस्पॉन्स: {res}")
+            return f"<div>⚠️ एरर: {res.get('message', 'माहिती मिळू शकली नाही')}</div>"
     except Exception as e_hist:
-        print(f"❌ Active call exception tracking: {e_hist}")
-        return f"<div>⚠️ Exception tracking failure: {str(e_hist)}</div>"
+        print(f"❌ हिस्ट्री API कॉल अयशस्वी: {e_hist}")
+        return f"<div>⚠️ एक्सेप्शन एरर: {str(e_hist)}</div>"
 
-# Run sample execution pipeline tracking validation
+# चाचणी रन (Test Run)
 html_table = get_index_weekly_html("NSE:NIFTY50-INDEX", "Thursday", "Nifty 50 Weekly")
