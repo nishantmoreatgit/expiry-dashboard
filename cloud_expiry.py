@@ -15,7 +15,7 @@ if not client_id or not access_token:
     print("❌ एरर: गिटहब सिक्रेट्समधून App ID किंवा Access Token मिळाला नाही!")
     sys.exit(1)
 
-print("✅ क्रेडेंशियल्स मिळाले! १-मिनिट रिअल-टाइम डेटा इंजिन सुरू करत आहे...")
+print("✅ क्रेडेंशियल्स मिळाले! १-मिनिट लाईव्ह टिक इंजिन सुरू करत आहे...")
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
 
 # =====================================================================
@@ -25,12 +25,11 @@ def force_rebuild_dashboard():
     symbol = "NSE:NIFTY50-INDEX"
     current_date_str = datetime.date.today().strftime("%Y-%m-%d")
     
-    # 🎯 १. खरोखरचा चालू लाईव्ह भाव मिळवणे (1-Minute Resolution History)
+    # 🎯 १. खरोखरचा चालू लाईव्ह भाव मिळवणे (1-Minute Resolution)
     live_close = 0.0
     live_change = 0.0
     
     try:
-        # आजच्या दिवसाची चालू १-मिनिटाची कॅंडल मागवणे
         live_payload = {
             "symbol": symbol,
             "resolution": "1",
@@ -43,13 +42,14 @@ def force_rebuild_dashboard():
         if live_res and live_res.get('code') == 200:
             live_candles = live_res.get('candles', [])
             if live_candles:
-                # सर्वात शेवटच्या १-मिनिटाच्या कॅंडलचा क्लोजिंग भाव म्हणजेच चालू टिक भाव (LTP)
-                live_close = live_candles[-1][4]
-                print(f"🎯 १-मिनिट कॅंडलवरून मिळालेला थेट बाजारभाव: {live_close}")
+                # ✅ फिक्स: [Timestamp, Open, High, Low, Close, Volume] मधून Index 4 (Close) काढला
+                latest_candle = live_candles[-1]
+                live_close = float(latest_candle[4])
+                print(f"🎯 १-मिनिट कॅंडलमधून मिळालेला थेट लाईव्ह बाजारभाव: {live_close}")
     except Exception as e_live:
         print(f"⚠️ १-मिनिट डेटा खेचताना एरर आली: {e_live}")
 
-    # २. ऐतिहासिक मंगळवार डेटा मिळवणे (Daily Resolution History)
+    # २. ऐतिहासिक मंगळवार डेटा मिळवणे (Daily Resolution)
     start_date = datetime.date.today() - datetime.timedelta(days=90)
     history_payload = {
         "symbol": symbol, 
@@ -71,20 +71,20 @@ def force_rebuild_dashboard():
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
             
-            # बदल टक्केवारी काढणे (Daily Change %)
+            # बदल टक्केवारी काढणे
             df['Prev_Close'] = df['Close'].shift(1)
             df['Change_Pct'] = ((df['Close'] - df['Prev_Close']) / df['Prev_Close']) * 100
             
-            # जर १-मिनिट डेटा अपयशी ठरला, तरच डेली क्लोज वापरणे
+            # जर १-मिनिट लाइव्ह भाव मिळाला नसेल तरच डेली क्लोज वापरणे
             if live_close == 0.0:
-                live_close = df['Close'].iloc[-1]
-                live_change = df['Change_Pct'].iloc[-1]
+                live_close = float(df['Close'].iloc[-1])
+                live_change = float(df['Change_Pct'].iloc[-1])
             else:
-                # जर १-मिनिट लाइव्ह भाव मिळाला, तर कालच्या बंद भावावरून आजचा खरा लाइव्ह बदल काढणे
-                prev_day_close = df['Close'].iloc[-2] if len(df) > 1 else df['Close'].iloc[-1]
+                # जर लाइव्ह भाव मिळाला, तर कालच्या बंद भावावरून आजचा खरा लाइव्ह बदल काढणे
+                prev_day_close = float(df['Close'].iloc[-2]) if len(df) > 1 else float(df['Close'].iloc[-1])
                 live_change = ((live_close - prev_day_close) / prev_day_close) * 100
             
-            # डेटा रिव्हर्स करणे (जेणेकरून ऐतिहासिक तारखा खाली क्रमाने दिसतील)
+            # डेटा रिव्हर्स करणे (नवीन तारखा वर दिसण्यासाठी)
             df = df.iloc[::-1]
             
             html_rows = ""
@@ -94,7 +94,7 @@ def force_rebuild_dashboard():
             # 🎯 डॅशबोर्डवर १००% अचूक चालू रिअल-टाइम ओळ जोडणे
             html_rows += f"<tr style='background-color: #ffe6e6; font-weight: bold;'><td>🔴 CLOUD LIVE (Last Fetch)</td><td>{live_close:,.2f} ({current_date_str})</td><td style='color: {change_color};'>{sign}{live_change:.2f}%</td></tr>\n"
             
-            # ऐतिहासिक मंगळवारचे रेकॉर्ड्स फिल्टर करून जोडणे
+            # ऐतिहासिक मंगळवारचे रेकॉर्ड्स जोडणे
             for _, row in df.iterrows():
                 if row['Date'] == datetime.date.today():
                     continue
