@@ -5,8 +5,8 @@ import sys
 import pyotp
 import requests
 import pandas as pd
-# ✅ नवीन व्हर्जननुसार सुधारित इम्पोर्ट स्ट्रक्चर
-from fyers_apiv3 import fyersModel, session
+# ✅ FIX: Import directly from the correct Fyers v3 module namespaces
+from fyers_apiv3 import fyersModel
 
 # =====================================================================
 # 🔐 गिटहब सिक्रेट्स (Secrets) मधून क्रेडेंशियल्स वाचणे
@@ -19,7 +19,7 @@ fyers_id = os.environ.get('FYERS_ID')
 redirect_uri = "https://fyers.in"
 
 def get_automated_access_token():
-    """स्वयंचलितपणे रोजचा नवीन टोकन तयार करणारी सिस्टीม"""
+    """स्वयंचलितपणे रोजचा नवीन टोकन तयार करणारी सिस्टीम"""
     try:
         if not all([client_id, secret_key, totp_key, pin, fyers_id]):
             print("❌ चूक: गिटहब सिक्रेट्समध्ये (FY_APP_ID, FY_SECRET_KEY, etc.) माहिती सेट करायची राहिली आहे!")
@@ -54,7 +54,7 @@ def get_automated_access_token():
             
         access_token_temp = res_pin.get('data', {}).get('access_token')
 
-        # पायरी ४: ओ-ऑथ (OAuth) ऑथोरायझेशन लिंक मिळवणे
+        # पायरी ४: ओ-ऑथ (OAuth) ऑथोरायझेशन链 लिंक मिळवणे
         oauth_headers = {'Authorization': f"Bearer {access_token_temp}", 'Content-Type': 'application/json', 'User-Agent': headers['User-Agent']}
         oauth_payload = {"client_id": client_id, "redirect_uri": redirect_uri, "response_type": "code", "state": "sample_state"}
         res_oauth = requests.post("https://fyers.in", json=oauth_payload, headers=oauth_headers).json()
@@ -73,8 +73,8 @@ def get_automated_access_token():
             print(f"❌ ऑथ कोड स्प्लिट करताना एरर आली: {e_split} | URL: {target_url}")
             return None
 
-        # ✅ पायरी ५: सुधारित session मॉड्यूलचा वापर करून फायनल ॲक्सेस टोकन मिळवणे
-        fyers_session = session.FyersSession(
+        # ✅ FIX: Use fyersModel.SessionModel to create the daily authorization session handler
+        fyers_session = fyersModel.SessionModel(
             client_id=client_id, secret_key=secret_key,
             redirect_uri=redirect_uri, response_type="code"
         )
