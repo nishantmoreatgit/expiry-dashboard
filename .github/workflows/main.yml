@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write  # 👈 गिटहब डॅशबोर्ड फाईल रायटिंग परमिशन दिली
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,9 +26,15 @@ jobs:
 
       - name: Run Script
         env:
-          # १. गिटहब सिक्रेट्समधील FY_USER_ID मध्ये तुमचा App ID (e.g. RAE54K69M5-100) टाका:
           FY_APP_ID: ${{ secrets.FY_USER_ID }}
-          
-          # २. गिटहब सिक्रेट्समधील FY_ACCESS_TOKEN मध्ये तुमचा रोजचा लाइव्ह टोकन टाका:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
+
+      # 🎯 नवीन जोडलेली पायरी: बदललेला डॅशबोर्ड डेटा गिटहबवर सेव्ह करणे
+      - name: Commit and Push Dashboard Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@://github.com"
+          git add -A
+          git diff-index --quiet HEAD || git commit -m "📊 डॅशबोर्ड लाइव्ह डेटा अपडेट केला: $(date)"
+          git push origin main
