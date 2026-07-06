@@ -1,6 +1,9 @@
 name: Fetch Fyers Live Data
 
 on:
+  schedule:
+    # 📊 सोमवार ते शुक्रवार, भारतीय वेळेनुसार सकाळी ८:४५ ते दुपारी ३:४५ दरम्यान दर ५ मिनिटांनी धावेल
+    - cron: '*/5 3-10 * * 1-5'
   push:
     branches: [ main ]
   workflow_dispatch:
@@ -15,7 +18,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # 🎯 Job 1: Pulls active data, generates the layout, and saves it permanently
   build:
     runs-on: ubuntu-latest
     steps:
@@ -60,13 +62,12 @@ jobs:
         with:
           path: '.'
 
-  # 🎯 Job 2: Waits for Job 1 to finish, then securely deploys the live dashboard
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build  # 👈 Crucial: Waits for the repository changes to save first
+    needs: build  
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
