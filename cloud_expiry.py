@@ -13,7 +13,6 @@ access_token = os.environ.get('FY_LIVE_TOKEN')
 
 if not client_id or not access_token:
     print("❌ एरर: गिटहब सिक्रेट्समधून App ID किंवा Access Token मिळाला नाही!")
-    print(f"🔍 सद्यस्थिती -> App ID मिळाला का?: {'होय' if client_id else 'नाही'}, Token मिळाला का?: {'होय' if access_token else 'नाही'}")
     sys.exit(1)
 
 print("✅ क्रेडेंशियल्स मिळाले! फायर्स क्लायंट सुरू करत आहे...")
@@ -32,10 +31,10 @@ def black_scholes_options(S, K, T, r, sigma):
     return S * cdf_normal(d1) - K * math.exp(-r * T) * cdf_normal(d2), K * math.exp(-r * T) * cdf_normal(-d2) - S * cdf_normal(-d1)
 
 # =====================================================================
-# 📊 डेटा फेचिंग आणि HTML जनरेशन फंक्शन
+# 📊 डेटा फेचिंग आणि HTML टेबल जनरेशन फंक्शन
 # =====================================================================
 def get_index_weekly_html(symbol, title):
-    # मागील ६० दिवसांचा डेटा मिळवणे जेणेकरून रिपोर्ट्समध्ये खंड पडणार नाही
+    # मागील ६० दिवसांचा डेटा मिळवणे
     start_date = datetime.date.today() - datetime.timedelta(days=60)
     payload = {
         "symbol": symbol, 
@@ -51,9 +50,8 @@ def get_index_weekly_html(symbol, title):
             candles = res.get('candles', [])
             if not candles: 
                 print(f"⚠️ {title}: डेटा रिकामा मिळाला.")
-                return f"<div style='color:orange;'>⚠️ {title}: डेटा मिळाला नाही.</div>"
+                return None
             
-            # कॅंडल्स डेटा फ्रेम तयार करणे
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
             
@@ -61,49 +59,70 @@ def get_index_weekly_html(symbol, title):
             df['Prev_Close'] = df['Close'].shift(1)
             df['Change_Pct'] = ((df['Close'] - df['Prev_Close']) / df['Prev_Close']) * 100
             
-            print(f"📊 {title} लाइव्ह डेटा यशस्वी! शेवटची क्लोजिंग किंमत: {df['Close'].iloc[-1]}")
-            
             # डेटा रिव्हर्स करणे (नवीन तारीख वर दाखवण्यासाठी)
             df = df.iloc[::-1]
             
-            # डॅशबोर्डसाठी सुंदर HTML टेबल तयार करणे
-            html_content = f"<h3>📊 {title} Dashboard</h3>"
-            html_content += "<table border='1' style='border-collapse: collapse; width: 100%; text-align: left; font-family: Arial;'>"
-            html_content += "<tr style='background-color: #f2f2f2;'><th>तारीख ▲▼</th><th>क्लोज प्राईस ▲▼</th><th>बदल % ▲▼</th></tr>"
+            # डॅशबोर्डचे टेबल रोजचे रो जनरेट करणे
+            html_rows = ""
             
-            # पहिली ओळ LIVE डेटा म्हणून हायलाइट करणे
+            # १. पहिली ओळ LIVE डेटा (Latest Row)
             live_row = df.iloc[0]
             change_color = "green" if live_row['Change_Pct'] >= 0 else "red"
-            html_content += f"<tr style='background-color: #ffe6e6; font-weight: bold;'>"
-            html_content += f"<td>🔴 CLOUD LIVE (Last Fetch)</td><td>{live_row['Close']:,} (Today)</td><td style='color: {change_color};'>{live_row['Change_Pct']:.2f}%</td></tr>"
+            html_rows += f"<tr style='background-color: #ffe6e6; font-weight: bold;'>"
+            html_rows += f"<td>🔴 CLOUD LIVE (Last Fetch)</td><td>{live_row['Close']:,} (Today)</td><td style='color: {change_color};'>+{live_row['Change_Pct']:.2f}%</td></tr>\n"
             
-            # इतर ऐतिहासिक तारखा जोडणे (फक्त मंगळवार/विशिष्ट दिवसांचा फिल्टर हवा असल्यास तो इथे लावू शकता)
-            for _, row in df.iloc[1:10].iterrows():
-                day_name = pd.to_datetime(row['Date']).strftime('%a')
-                row_color = "green" if row['Change_Pct'] >= 0 else "red"
-                html_content += f"<tr><td>{row['Date']} ({day_name})</td><td>{row['Close']:,}</td><td style='color: {row_color};'>{row['Change_Pct']:.2f}%</td></tr>"
+            # २. इतर ऐतिहासिक मंगळवार फिल्टर करून जोडणे
+            for _, row in df.iloc[1:].iterrows():
+                dt = pd.to_datetime(row['Date'])
+                day_name = dt.strftime('%a')
                 
-            html_content += "</table>"
-            return html_content
+                # फक्त मंगळवारचा डेटा डॅशबोर्डमध्ये जोडण्यासाठी फिल्टर (Tuesday Expiry)
+                if day_name == "Tue":
+                    row_color = "green" if row['Change_Pct'] >= 0 else "red"
+                    sign = "+" if row['Change_Pct'] >= 0 else ""
+                    html_rows += f"<tr><td>{row['Date']} (Tue)</td><td>{row['Close']:,}</td><td style='color: {row_color};'>{sign}{row['Change_Pct']:.2f}%</td></tr>\n"
+            
+            return html_rows
         else:
             print(f"❌ फियर्स हिस्ट्री एरर रिस्पॉन्स: {res}")
-            return f"<div style='color:red;'>⚠️ एरर: {res.get('message', 'माहिती मिळू शकली नाही')}</div>"
-    except Exception as e_hist:
-        print(f"❌ हिस्ट्री API कॉल अयशस्वी: {e_hist}")
-        return f"<div style='color:red;'>⚠️ एक्सेप्शन एरर: {str(e_hist)}</div>"
+            return None
+    except Exception as e:
+        print(f"❌ हिस्ट्री API कॉल अयशस्वी: {e}")
+        return None
 
 # =====================================================================
-# 💾 मुख्य एक्झिक्युशन आणि फाईल सेव्हिंग सिस्टीम
+# 💾 मुख्य एक्झिक्युशन आणि फाईल इंजेक्शन सिस्टीम
 # =====================================================================
-# डेटा फेच करा
-html_table = get_index_weekly_html("NSE:NIFTY50-INDEX", "⚡ CLOUD LIVE INTRA-DAY MASTER DASHBOARD")
+html_table_rows = get_index_weekly_html("NSE:NIFTY50-INDEX", "Nifty 50 Weekly")
 
-# डॅशबोर्ड फाईलचे नाव (तुमच्या फाईलचे नाव index.html नसेल तर ते बदला)
-dashboard_filename = "index.html" 
-
-try:
-    with open(dashboard_filename, "w", encoding="utf-8") as f:
-        f.write(html_table)
-    print(f"💾 यशस्वी: नवीन डेटा {dashboard_filename} फाईलमध्ये लिहिला गेला आहे!")
-except Exception as e_file:
-    print(f"❌ फाईल सेव्ह करताना एरर आली: {e_file}")
+if html_table_rows:
+    dashboard_filename = "index.html"
+    
+    try:
+        # १. मूळ index.html फाईल वाचणे
+        with open(dashboard_filename, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        
+        # २. जुना टेबल डेटा शोधून नवीन डेटाने बदलणे
+        # तुमच्या index.html मध्ये <tbody> आणि </tbody> चे टॅग्ज असणे आवश्यक आहे
+        if "<tbody>" in html_content and "</tbody>" in html_content:
+            start_idx = html_content.find("<tbody>") + len("<tbody>")
+            end_idx = html_content.find("</tbody>")
+            
+            # नवीन डेटा टेबलच्या मध्ये इन्जेक्ट करणे
+            updated_html = html_content[:start_idx] + "\n" + html_table_rows + html_content[end_idx:]
+            
+            # ३. बदललेली फाईल पुन्हा सेव्ह करणे
+            with open(dashboard_filename, "w", encoding="utf-8") as f:
+                f.write(updated_html)
+            print(f"💾 यशस्वी: नवीन लाइव्ह डेटा {dashboard_filename} मध्ये इन्जेक्ट केला आहे!")
+        else:
+            print("⚠️ एरर: index.html मध्ये <tbody> टॅग सापडला नाही. संपूर्ण फाईल अपडेट केली जात आहे.")
+            # टॅग नसेल तर बॅकअप म्हणून संपूर्ण फाईल ओव्हरराईट करणे
+            with open(dashboard_filename, "w", encoding="utf-8") as f:
+                f.write(html_table_rows)
+                
+    except Exception as e:
+        print(f"❌ फाईल अपडेट करताना त्रुटी: {e}")
+else:
+    print("🚨 डेटा मिळाला नाही, त्यामुळे डॅशबोर्ड अपडेट केला नाही.")
