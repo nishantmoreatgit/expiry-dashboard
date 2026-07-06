@@ -7,12 +7,17 @@ on:
 
 permissions:
   contents: write
-  pages: write      # 👈 गिटहब पेजेस पब्लिश करण्याची अधिकृत परवानगी
+  pages: write      
   id-token: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 🎯 FIXED HERE: Explicitly added the required deployment environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+      
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -32,20 +37,19 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
-      # 🎯 Updated Commit Step to force-capture index layout adjustments
       - name: Commit Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
-          git add -A  # 👈 Captures all workspace shifts cleanly
+          git add -A  
           git diff-index --quiet HEAD || git commit -m "📊 Updated Live Dashboard Matrix Data"
           git push origin main
 
-      # 🎯 पायरी २: थेट गिटहब सर्व्हरवर नवीन पेज डिप्लॉय करणे (बदलांसाठी १ सेकंद लागेल)
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
 
       - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
