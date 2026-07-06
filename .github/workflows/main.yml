@@ -21,11 +21,13 @@ jobs:
         run: |
           pip install pandas fyers-apiv3 pyotp requests
 
-      - name: Run Script
+            - name: Run Script
         env:
-          FY_APP_ID: ${{ secrets.FY_APP_ID }}
+          # डावीकडील नावे पायथन कोड वाचेल आणि उजवीकडील नावे तुमच्या गिटहब सेटिंग्जमधील आहेत
+          FY_APP_ID: ${{ secrets.FY_ACCESS_TOKEN }}   # 👈 हे सुधारले आहे (तुमचा Client ID यात आहे)
           FY_SECRET_KEY: ${{ secrets.FY_SECRET_KEY }}
           FY_TOTP_KEY: ${{ secrets.FY_TOTP_KEY }}
           FY_PIN: ${{ secrets.FY_PIN }}
-          FYERS_ID: ${{ secrets.FYERS_ID }}
+          FYERS_ID: ${{ secrets.FY_USER_ID }}         # 👈 हे सुधारले आहे (तुमचा User ID यात आहे)
         run: python cloud_expiry.py
+
