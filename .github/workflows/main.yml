@@ -28,4 +28,4 @@ jobs:
           FY_TOTP_KEY: ${{ secrets.FY_TOTP_KEY }}
           FY_PIN: ${{ secrets.FY_PIN }}
           FYERS_ID: ${{ secrets.FYERS_ID }}
-        run: python script.py
+        run: cloud_expiry.py
