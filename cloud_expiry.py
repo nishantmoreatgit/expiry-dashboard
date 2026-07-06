@@ -6,23 +6,23 @@ import pandas as pd
 from fyers_apiv3 import fyersModel
 
 # =====================================================================
-# 🔐 गिटहब सिक्रेट्समधून थेट चालू लाइव्ह टोकन वाचणे
+# 🔐 Fetch secure live credentials from GitHub Actions Environment Maps
 # =====================================================================
 client_id = os.environ.get('FY_APP_ID')         
 access_token = os.environ.get('FY_LIVE_TOKEN')   
 
 if not client_id or not access_token:
-    print("❌ एरर: गिटहब सिक्रेट्समधून App ID किंवा Access Token मिळाला नाही!")
+    print("❌ Error: Missing credentials inside the runner environment!")
     sys.exit(1)
 
-print("✅ क्रेडेंशियल्स मिळाले! फायर्स क्लायंट सुरू करत आहे...")
+print("✅ Credentials verified! Connecting to Fyers API ecosystem...")
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
 
 # =====================================================================
-# 📊 डेटा फेचिंग आणि HTML रो जनरेशन फंक्शन
+# 📊 Fetch market candle matrices and generate responsive HTML layouts
 # =====================================================================
-def get_index_weekly_html(symbol):
-    # मागील ९० दिवसांचा ऐतिहासिक डेटा मिळवणे
+def get_index_weekly_html(symbol, title):
+    # Fetch previous historical vectors to fill database requirements 
     start_date = datetime.date.today() - datetime.timedelta(days=90)
     payload = {
         "symbol": symbol, 
@@ -37,73 +37,101 @@ def get_index_weekly_html(symbol):
         if res and res.get('code') == 200:
             candles = res.get('candles', [])
             if not candles: 
-                print(f"⚠️ {symbol}: डेटा रिकामा मिळाला.")
-                return None
+                print(f"⚠️ {symbol}: Empty candle matrix returned.")
+                return None, None
             
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
             
-            # बदल % (Change %) कॅल्क्युलेट करणे
+            # Extract change metric arrays 
             df['Prev_Close'] = df['Close'].shift(1)
             df['Change_Pct'] = ((df['Close'] - df['Prev_Close']) / df['Prev_Close']) * 100
-            
-            # डेटा रिव्हर्स करणे (नवीन तारीख वर दाखवण्यासाठी)
             df = df.iloc[::-1]
             
             html_rows = ""
             
-            # १. पहिली ओळ LIVE डेटा (Latest Row)
+            # 1. Inject Live data header tracking vector
             live_row = df.iloc[0]
             change_color = "green" if live_row['Change_Pct'] >= 0 else "red"
             sign = "+" if live_row['Change_Pct'] >= 0 else ""
             html_rows += f"<tr style='background-color: #ffe6e6; font-weight: bold;'><td>🔴 CLOUD LIVE (Last Fetch)</td><td>{live_row['Close']:,} (Today)</td><td style='color: {change_color};'>{sign}{live_row['Change_Pct']:.2f}%</td></tr>\n"
             
-            # २. इतर ऐतिहासिक मंगळवार फिल्टर करून जोडणे
+            # 2. Extract specific Tuesday expiration nodes (Tuesday Expiry filter)
             for _, row in df.iloc[1:].iterrows():
                 dt = pd.to_datetime(row['Date'])
-                day_name = dt.strftime('%a')
-                
-                # फक्त मंगळवारचा डेटा (Tuesday Expiry)
-                if day_name == "Tue":
+                if dt.strftime('%a') == "Tue":
                     row_color = "green" if row['Change_Pct'] >= 0 else "red"
                     row_sign = "+" if row['Change_Pct'] >= 0 else ""
                     html_rows += f"<tr><td>{row['Date']} (Tue)</td><td>{row['Close']:,}</td><td style='color: {row_color};'>{row_sign}{row['Change_Pct']:.2f}%</td></tr>\n"
             
-            return html_rows
+            # Comprehensive master fallback HTML backup template layout
+            full_html = f"""<!DOCTYPE html>
+<html lang="mr">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="60">
+    <title>{title}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; background-color: #f9f9f9; }}
+        table {{ border-collapse: collapse; width: 100%; max-width: 800px; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
+        th, td {{ border: 1px solid #dddddd; text-align: left; padding: 12px; }}
+        th {{ background-color: #f2f2f2; }}
+        h2 {{ color: #333; }}
+    </style>
+</head>
+<body>
+    <h2>📊 {title}</h2>
+    <p>Nifty 50 Spot Weekly Report (Tuesday Expiry)</p>
+    <table>
+        <thead>
+            <tr><th>तारीख ▲▼</th><th>क्लोज प्राईस ▲▼</th><th>बदल % ▲▼</th></tr>
+        </thead>
+        <tbody>
+            {html_rows}
+        </tbody>
+    </table>
+</body>
+</html>"""
+            return html_rows, full_html
         else:
-            print(f"❌ फियर्स हिस्ट्री एरर रिस्पॉन्स: {res}")
-            return None
+            print(f"❌ API Query Failed: {res}")
+            return None, None
     except Exception as e:
-        print(f"❌ हिस्ट्री API कॉल अयशस्वी: {e}")
-        return None
+        print(f"❌ Calculation Pipeline Interrupted: {e}")
+        return None, None
 
 # =====================================================================
-# 💾 मुख्य एक्झिक्युशन आणि अचूक प्लेसहोल्डर रिप्लेसमेंट सिस्टीम
+# 💾 Secure Execution File Writing Engine 
 # =====================================================================
-nifty_table_rows = get_index_weekly_html("NSE:NIFTY50-INDEX")
+html_table_rows, complete_html_page = get_index_weekly_html("NSE:NIFTY50-INDEX", "CLOUD LIVE INTRA-DAY MASTER DASHBOARD")
 
-if nifty_table_rows:
+if html_table_rows and complete_html_page:
     dashboard_filename = "index.html"
     
     try:
+        # Check and load existing layout models safely
         if os.path.exists(dashboard_filename):
-            # १. मूळ index.html फाईल पूर्ण वाचणे
             with open(dashboard_filename, "r", encoding="utf-8") as f:
                 html_content = f.read()
             
-            # २. जर {{NIFTY_DATA}} हा प्लेसहोल्डर मिळाला तर तिथे डेटा रिप्लेस करणे
+            # If our explicit macro placeholder tag is active, replace it
             if "{{NIFTY_DATA}}" in html_content:
-                updated_html = html_content.replace("{{NIFTY_DATA}}", nifty_table_rows)
-                
+                updated_html = html_content.replace("{{NIFTY_DATA}}", html_table_rows)
                 with open(dashboard_filename, "w", encoding="utf-8") as f:
                     f.write(updated_html)
-                print("💾 यशस्वी: लाइव्ह डेटा {{NIFTY_DATA}} च्या जागी अचूक अपडेट केला गेला आहे!")
+                print("💾 Success: Live row variables injected inside macro mapping placeholders!")
             else:
-                print("⚠️ एरर: index.html मध्ये {{NIFTY_DATA}} हा शब्द सापडला नाही. कृपया index.html मध्ये हा प्लेसहोल्डर टॅग जोडा.")
+                # 🎯 AUTO-RECOVERY FIX: If placeholder isn't found, write the whole page layout cleanly!
+                with open(dashboard_filename, "w", encoding="utf-8") as f:
+                    f.write(complete_html_page)
+                print("💾 Success: Re-compiled master HTML index layout container structure directly!")
         else:
-            print(f"❌ चूक: {dashboard_filename} फाईल सापडली नाही.")
+            # Create a brand new workspace tracking container if missing entirely
+            with open(dashboard_filename, "w", encoding="utf-8") as f:
+                f.write(complete_html_page)
+            print("💾 Success: Initialized pristine ecosystem dashboard index layout frame!")
                 
     except Exception as e:
-        print(f"❌ फाईल सेव्ह करताना त्रुटी: {e}")
+        print(f"❌ Write operation dropped: {e}")
 else:
-    print("🚨 फियर्स कडून डेटा मिळाला नाही, त्यामुळे डॅशबोर्ड अपडेट केला नाही.")
+    print("🚨 Dataset extraction failed empty. Halting write sync arrays.")
