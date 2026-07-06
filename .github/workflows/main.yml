@@ -18,7 +18,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # 🎯 जॉब १: डेटा खेचणे, कॅल्क्युलेशन करणे आणि index.html सेव्ह करणे
   build:
     runs-on: ubuntu-latest
     steps:
@@ -42,6 +41,7 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
+      # 🎯 चूकीचे एरर मेसेज टाळणारी सर्वात सुरक्षित सिन्क्रोनायझेशन स्टेप
       - name: Commit and Force Sync Changes
         run: |
           git config --global user.name "github-actions[bot]"
@@ -58,19 +58,24 @@ jobs:
             echo "ℹ️ डॅशबोर्ड आधीपासूनच अपडेटेड आहे."
           fi
 
+      # 🎯 नवीन अपडेट: डिप्लॉयमेंट फेल होऊ नये म्हणून स्वतंत्र फोल्डर स्ट्रक्चर मॅनेजमेंट
+      - name: Setup Pages Deployment Directory
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.' # फक्त मूळ डिरेक्टरीमधील नवीन फाईल्स पॅक करणे
+          path: '_site' # 👈 फक्त _site फोल्डरमधील फ्रेश फाईल पॅक होईल
 
-  # 🎯 जॉब २: जॉब १ पूर्ण झाल्यावर स्वतंत्रपणे गिटहब पेजेसवर पब्लिश करणे (यामुळे प्रोग्रेस लूप सुटेल)
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build # 👈 महत्त्वाचे: पहिला जॉब यशस्वी संपल्यावरच हा सुरू होईल
+    needs: build  
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v4 # 👈 अधिकृत स्थिर डिप्लॉयमेंट प्लगइन
