@@ -6,26 +6,26 @@ import pandas as pd
 from fyers_apiv3 import fyersModel
 
 # =====================================================================
-# 🔐 गिटहब सिक्रेट्समधून थेट चालू लाइव्ह टोकन वाचणे
+# 🔐 Fetch secure runtime token environments from GitHub Actions
 # =====================================================================
 client_id = os.environ.get('FY_APP_ID')         
 access_token = os.environ.get('FY_LIVE_TOKEN')   
 
 if not client_id or not access_token:
-    print("❌ एरर: गिटहब सिक्रेट्समधून App ID किंवा Access Token मिळाला नाही!")
+    print("❌ Error: Missing configuration parameters in environment maps.")
     sys.exit(1)
 
-print("✅ क्रेडेंशियल्स मिळाले! १-मिनिट रिअल-टाइम टिक इंजिन सुरू करत आहे...")
+print("✅ Credentials verified! Initializing Fyers client channel...")
 fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, is_async=False, log_path="")
 
 # =====================================================================
-# 📊 डेटा फेचिंग आणि नवीन कोरी HTML डॅशबोर्ड जनरेशन सिस्टीम
+# 📊 Process historical candle records and structure metrics
 # =====================================================================
 def force_rebuild_dashboard():
     symbol = "NSE:NIFTY50-INDEX"
     current_date_str = datetime.date.today().strftime("%Y-%m-%d")
     
-    # 🎯 १. खरोखरचा चालू लाईव्ह भाव मिळवणे (1-Minute Resolution)
+    # 1. Fetch real-time live value using the 1-Minute historical candle endpoint
     live_close = 0.0
     live_change = 0.0
     
@@ -42,15 +42,18 @@ def force_rebuild_dashboard():
         if live_res and live_res.get('code') == 200:
             live_candles = live_res.get('candles', [])
             if live_candles:
-                # ✅ फिक्स: latest_candle मधील Index 4 वर असलेली 'Close Price' अचूकपणे काढली!
+                # ✅ FIX: Safely parse the last element as a structured index list rather than an object
                 latest_candle = live_candles[-1]
-                live_close = float(latest_candle[4])
-                print(f"🎯 १-मिनिट कॅंडलमधून मिळालेला थेट लाईव्ह बाजारभाव: {live_close}")
+                if isinstance(latest_candle, list) and len(latest_candle) >= 5:
+                    live_close = float(latest_candle[4]) # Index 4 contains the sub-minute close price
+                else:
+                    live_close = float(latest_candle)
+                print(f"🎯 1-Minute override extracted live market value: {live_close}")
     except Exception as e_live:
-        print(f"⚠️ १-मिनिट डेटा खेचताना एरर आली: {e_live}")
+        print(f"⚠️ 1-Minute tick extraction skipped: {e_live}")
 
-    # २. ऐतिहासिक मंगळवार डेटा मिळवणे (Daily Resolution)
-    start_date = datetime.date.today() - datetime.timedelta(days=90)
+    # 2. Extract standard historical Tuesday records using Daily indicators
+    start_date = datetime.date.today() - datetime.timedelta(days=120)
     history_payload = {
         "symbol": symbol, 
         "resolution": "D", 
@@ -65,36 +68,36 @@ def force_rebuild_dashboard():
         if res and res.get('code') == 200:
             candles = res.get('candles', [])
             if not candles: 
-                print("⚠️ हिस्टरी डेटा रिकामा मिळाला.")
+                print("⚠️ Daily index tracking framework returned empty lists.")
                 return None
             
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
             
-            # बदल टक्केवारी काढणे
+            # Form accurate change ratios across historical nodes
             df['Prev_Close'] = df['Close'].shift(1)
             df['Change_Pct'] = ((df['Close'] - df['Prev_Close']) / df['Prev_Close']) * 100
             
-            # जर १-मिनिट लाइव्ह भाव मिळाला नसेल तरच डेली क्लोज वापरणे
+            # Fall back to standard end-of-day daily indicators if live tick fails
             if live_close == 0.0:
-                live_close = float(df['Close'].iloc[-1])
-                live_change = float(df['Change_Pct'].iloc[-1])
+                live_close = float(df['Close'].values[-1])
+                live_change = float(df['Change_Pct'].values[-1])
             else:
-                # जर लाइव्ह भाव मिळाला, तर कालच्या बंद भावावरून आजचा खरा लाइव्ह बदल काढणे
-                prev_day_close = float(df['Close'].iloc[-2]) if len(df) > 1 else float(df['Close'].iloc[-1])
+                # Generate accurate change percentage ratios compared to yesterday's closing price
+                prev_day_close = float(df['Close'].values[-2]) if len(df) > 1 else float(df['Close'].values[-1])
                 live_change = ((live_close - prev_day_close) / prev_day_close) * 100
             
-            # डेटा रिव्हर्स करणे (नवीन तारखा वर दिसण्यासाठी)
-            df = df.iloc[::-1]
+            # Sort the data frame so that the newest records appear at the top
+            df = df.sort_values(by='Date', ascending=False)
             
             html_rows = ""
             change_color = "green" if live_change >= 0 else "red"
             sign = "+" if live_change >= 0 else ""
             
-            # 🎯 डॅशबोर्डवर १००% अचूक चालू रिअल-टाइम ओळ जोडणे
+            # Inject live tracking row into the data table structure
             html_rows += f"<tr style='background-color: #ffe6e6; font-weight: bold;'><td>🔴 CLOUD LIVE (Last Fetch)</td><td>{live_close:,.2f} ({current_date_str})</td><td style='color: {change_color};'>{sign}{live_change:.2f}%</td></tr>\n"
             
-            # ऐतिहासिक मंगळवारचे रेकॉर्ड्स जोडणे
+            # Filter and append specific Tuesday expiration metrics (Tuesday Expiry)
             for _, row in df.iterrows():
                 if row['Date'] == datetime.date.today():
                     continue
@@ -104,7 +107,7 @@ def force_rebuild_dashboard():
                     row_sign = "+" if row['Change_Pct'] >= 0 else ""
                     html_rows += f"<tr><td>{row['Date']} (Tue)</td><td>{row['Close']:,.2f}</td><td style='color: {row_color};'>{row_sign}{row['Change_Pct']:.2f}%</td></tr>\n"
             
-            # संपूर्ण स्वतंत्र डॅशबोर्ड टेम्पलेट
+            # Generate the final independent HTML page structure
             full_master_dashboard = f"""<!DOCTYPE html>
 <html lang="mr">
 <head>
@@ -127,21 +130,21 @@ def force_rebuild_dashboard():
             <tr><th>तारीख ▲▼</th><th>क्लोज प्राईस ▲▼</th><th>बदल % ▲▼</th></tr>
         </thead>
         <tbody>
-            {{html_rows}}
+            {html_rows}
         </tbody>
     </table>
 </body>
-</html>""".replace("{html_rows}", html_rows)
+</html>"""
             return full_master_dashboard
         else:
-            print(f"❌ फियर्स API कडून एरर आली: {res}")
+            print(f"❌ Fyers History Query Rejected: {res}")
             return None
     except Exception as e:
-        print(f"❌ डेटा कॅल्क्युलेशन क्रॅश झाले: {e}")
+        print(f"❌ Core processing error occurred: {e}")
         return None
 
 # =====================================================================
-# 💾 थेट फाईल ओव्हरराईट करणे (Force Override Engine)
+# 💾 Execute absolute overwrite file operation
 # =====================================================================
 fresh_dashboard_html = force_rebuild_dashboard()
 
@@ -150,6 +153,6 @@ if fresh_dashboard_html:
     try:
         with open(target_file, "w", encoding="utf-8") as f:
             f.write(fresh_dashboard_html)
-        print(f"💾 यशस्वी: {target_file} फाईल नवीन रिअल-टाइम लाइव्ह डेटासह अद्ययावत केली आहे!")
+        print(f"💾 Success: {target_file} updated cleanly with true live tick metrics!")
     except Exception as e:
-        print(f"❌ फाईल सेव्ह करताना त्रुटी आली: {e}")
+        print(f"❌ File saving operation dropped: {e}")
