@@ -2,7 +2,7 @@ name: Fetch Fyers Live Data
 
 on:
   schedule:
-    # 📊 सोमवार ते शुक्रवार, भारतीय वेळेनुसार सकाळी ८:४५ ते दुपारी ३:४५ दरम्यान दर ५ मिनिटांनी धावेल (Watch Function Active)
+    # 📊 सोमवार ते शुक्रवार, भारतीय वेळेनुसार सकाळी ८:४५ ते दुपारी ३:४५ दरम्यान दर ५ मिनिटांनी धावेल
     - cron: '*/5 3-10 * * 1-5'
   push:
     branches: [ main ]
@@ -41,30 +41,28 @@ jobs:
           FY_LIVE_TOKEN: ${{ secrets.FY_ACCESS_TOKEN }}
         run: python cloud_expiry.py
 
-      # 🎯 डेटा बदलला नाही तरी exit code 1 न देणारी सुरक्षित कमिट स्टेप
       - name: Commit and Force Sync Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
           
           git add index.html
-          
-          # फक्त index.html मध्ये बदल झाला असेल तरच कमिट होईल, अन्यथा सुरक्षितपणे पुढे जाईल
           if [ -n "$(git status --porcelain index.html)" ]; then
-            echo "✅ नवीन डेटा आढळला! डॅशबोर्ड अपडेट करत आहे..."
             git commit -m "📊 Live Dashboard Sync: $(date)"
             git stash --include-untracked
             git pull --rebase origin main -X ours
             git push origin main
             git stash pop || true
           else
-            echo "ℹ️ डॅशबोर्ड आधीपासूनच अपडेटेड आहे. कोणताही एरर न दाखवता पुढे जात आहे."
+            echo "ℹ️ डॅशबोर्ड आधीपासूनच अपडेटेड आहे."
           fi
 
+      # 🎯 फिक्स: डिप्लॉयमेंट जलद होण्यासाठी फक्त आणि फक्त index.html अपलोड करणे
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
+          file: 'index.html'
 
   deploy:
     environment:
