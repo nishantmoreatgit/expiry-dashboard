@@ -11,18 +11,18 @@ from fyers_apiv3.FyersConnect import session
 # =====================================================================
 # 🔐 गिटहब सिक्रेट्स (Secrets) मधून क्रेडेंशियल्स वाचणे
 # =====================================================================
-client_id = os.environ.get('FY_APP_ID')         # App ID (उदा. RAE54K69M5-100)
-secret_key = os.environ.get('FY_SECRET_KEY')     # Fyers Secret Key
-totp_key = os.environ.get('FY_TOTP_KEY')         # Fyers TOTP गुगल ऑथेंटिकेटर की
-pin = os.environ.get('FY_PIN')                   # 4-Digit लॉगिन पिन
-fyers_id = os.environ.get('FYERS_ID')             # तुमचा फियर्स युझर आयडी (उदा. XY12345)
+client_id = os.environ.get('FY_APP_ID')         
+secret_key = os.environ.get('FY_SECRET_KEY')     
+totp_key = os.environ.get('FY_TOTP_KEY')         
+pin = os.environ.get('FY_PIN')                   
+fyers_id = os.environ.get('FYERS_ID')             
 redirect_uri = "https://fyers.in"
 
 def get_automated_access_token():
     """स्वयंचलितपणे रोजचा नवीन टोकन तयार करणारी सिस्टीम"""
     try:
         if not all([client_id, secret_key, totp_key, pin, fyers_id]):
-            print("❌ चूक: गिटहब सिक्रेट्समध्ये कोणतीतरी माहिती सेट करायची राहिली आहे!")
+            print("❌ चूक: गिटहब सिक्रेट्समध्ये (FY_APP_ID, FY_SECRET_KEY, etc.) माहिती सेट करायची राहिली आहे!")
             return None
 
         # पायरी १: गुगल ऑथेंटिकेटरचा लाइव्ह ६ अंकी कोड तयार करणे
@@ -30,7 +30,6 @@ def get_automated_access_token():
         totp = pyotp.TOTP(clean_totp_key)
         current_otp = totp.now()
 
-        # ब्राउझर सारखे हेडर टाकणे (गिटहब ब्लॉक टाळण्यासाठी)
         headers = {
             'Accept': 'application/json', 
             'Content-Type': 'application/json',
@@ -41,16 +40,16 @@ def get_automated_access_token():
         payload_totp = {"client_id": client_id, "fyers_id": fyers_id, "totp": current_otp}
         res_totp = requests.post("https://fyers.in", json=payload_totp, headers=headers).json()
         if res_totp.get('s') != 'ok':
-            print(f"❌ TOTP व्हॅलिडेशन अयशस्वी: {res_totp}")
+            print(f"❌ पायरी २ (TOTP Error): फियर्स रिस्पॉन्स -> {res_totp}")
             return None
             
         request_key = res_totp.get('request_key')
 
-        # पायरी ३: ४-अंकी लॉगिन पिन व्हॅलिडेट करणे
+        # पायरी ३: लॉगिन पिन व्हॅलिडेट करणे
         payload_pin = {"client_id": client_id, "request_key": request_key, "pin": pin}
         res_pin = requests.post("https://fyers.in", json=payload_pin, headers=headers).json()
         if res_pin.get('s') != 'ok':
-            print(f"❌ PIN व्हॅलिडेशन अयशस्वी: {res_pin}")
+            print(f"❌ पायरी ३ (PIN Error): फियर्स रिस्पॉन्स -> {res_pin}")
             return None
             
         access_token_temp = res_pin.get('data', {}).get('access_token')
@@ -62,15 +61,16 @@ def get_automated_access_token():
         
         target_url = res_oauth.get('data', {}).get('redirect_url', '')
         if not target_url or 'auth_code=' not in target_url:
-            print(f"❌ ऑथ कोड मिळवता आला नाही. फियर्सचा रिस्पॉन्स: {res_oauth}")
+            print(f"❌ पायरी ४ (OAuth Error): ऑथ कोड मिळाला नाही. फियर्स रिस्पॉन्स -> {res_oauth}")
             return None
 
-        # ✅ सुरक्षित स्ट्रिंग स्प्लिट (यामुळे आधी एरर येत होती)
-        url_parts = target_url.split('auth_code=')
-        if len(url_parts) > 1:
+        # ✅ पायरी ४.५: स्ट्रिंग स्प्लिटिंग पूर्णपणे दुरुस्त (स्ट्रिंग स्वरूपात कोड काढणे)
+        try:
+            url_parts = target_url.split('auth_code=')
             auth_code = url_parts[1].split('&')[0]
-        else:
-            print("❌ URL मधून auth_code वेगळा करता आला नाही.")
+            print(f"🔍 एक्स्ट्रॅक्ट केलेला ऑथ कोड (Auth Code): {auth_code[:5]}...")
+        except Exception as e_split:
+            print(f"❌ ऑथ कोड स्प्लिट करताना एरर आली: {e_split} | URL: {target_url}")
             return None
 
         # पायरी ५: फायर्स SDK चा वापर करून फायनल ॲक्सेस टोकन मिळवणे
@@ -80,17 +80,22 @@ def get_automated_access_token():
         )
         fyers_session.set_token(auth_code)
         response = fyers_session.generate_token()
-        return response.get("access_token")
+        
+        if "access_token" in response:
+            return response.get("access_token")
+        else:
+            print(f"❌ पायरी ५ (Token Generation Error): SDK रिस्पॉन्स -> {response}")
+            return None
         
     except Exception as e:
-        print(f"❌ ऑटोमेशन मध्ये अडथळा आला: {e}")
+        print(f"❌ सिस्टीम ऑटोमेशन मध्ये अडथळा: {e}")
         return None
 
 # टोकन जनरेशन सुरू करा
 access_token = get_automated_access_token()
 
 if not access_token:
-    print("🚨 ॲक्सेस टोकन मिळाला नाही. कोड थांबवला जात आहे.")
+    print("🚨 ॲक्सेस टोकन मिळाला नाही. कोड सुरक्षितपणे थांबवला जात आहे.")
     sys.exit(1)
 
 print("✅ टोकन यशस्वीरित्या मिळाला! लाइव्ह डेटा फेच करत आहे...")
@@ -126,7 +131,6 @@ def get_index_weekly_html(symbol, expiry_day, title):
                 print(f"⚠️ {title}: कॅंडल्सचा डेटा रिकामा मिळाला.")
                 return f"<div>⚠️ {title}: डेटा मिळाला नाही.</div>"
             
-            # डेटा फ्रेम तयार करणे आणि अपूर्ण राहिलेला कोड पूर्ण करणे
             df = pd.DataFrame(candles, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
             df['Date'] = pd.to_datetime(df['Timestamp'], unit='s').dt.date
             print(f"📊 {title} डेटा यशस्वीरित्या मिळाला! शेवटची क्लोजिंग किंमत: {df['Close'].iloc[-1]}")
