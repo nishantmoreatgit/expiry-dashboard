@@ -57,16 +57,12 @@ jobs:
             echo "ℹ️ डॅशबोर्ड आधीपासूनच अपडेटेड आहे."
           fi
 
-      # 🎯 अचूक दुरुस्ती: तात्पुरत्या फोल्डरमध्ये फक्त index.html ठेवून तो अपलोड करणे
-      - name: Prepare Pages Artifact
-        run: |
-          mkdir public
-          cp index.html public/
-
-      - name: Upload Artifact
+      # 🎯 कॅश बस्टिंग फिक्स: जुनी मेमरी पुसून फक्त फ्रेश फाईल पाठवणे
+      - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './public' # 👈 फक्त नवीन तयार झालेली index.html अपलोड होईल
+          name: github-pages  # 👈 नवीन फ्रेश आर्टिफॅक्ट नाव दिले जेणेकरून गिटहब जुनी कॅश फाईल विसरून जाईल
+          path: '.'
 
   deploy:
     environment:
