@@ -5,7 +5,7 @@ import sys
 import pyotp
 import requests
 import pandas as pd
-# ✅ FIX: Import directly from the correct Fyers v3 module namespaces
+# फियर्स v3 नुसार अद्ययावत मॉड्यूल इम्पोर्ट
 from fyers_apiv3 import fyersModel
 
 # =====================================================================
@@ -21,11 +21,12 @@ redirect_uri = "https://fyers.in"
 def get_automated_access_token():
     """स्वयंचलितपणे रोजचा नवीन टोकन तयार करणारी सिस्टीम"""
     try:
+        # १. सर्व सिक्रेट्स गिटहबवरून आले आहेत का ते तपासणे
         if not all([client_id, secret_key, totp_key, pin, fyers_id]):
             print("❌ चूक: गिटहब सिक्रेट्समध्ये (FY_APP_ID, FY_SECRET_KEY, etc.) माहिती सेट करायची राहिली आहे!")
             return None
 
-        # पायरी १: गुगल ऑथेंटिकेटरचा लाइव्ह ६ अंकी कोड तयार करणे
+        # २. गुगल ऑथेंटिकेटरचा लाइव्ह ६ अंकी कोड तयार करणे
         clean_totp_key = totp_key.replace(" ", "")
         totp = pyotp.TOTP(clean_totp_key)
         current_otp = totp.now()
@@ -36,7 +37,7 @@ def get_automated_access_token():
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
         
-        # पायरी २: TOTP व्हॅलिडेट करणे
+        # ३. TOTP व्हॅलिडेट करणे
         payload_totp = {"client_id": client_id, "fyers_id": fyers_id, "totp": current_otp}
         res_totp = requests.post("https://fyers.in", json=payload_totp, headers=headers).json()
         if res_totp.get('s') != 'ok':
@@ -45,7 +46,7 @@ def get_automated_access_token():
             
         request_key = res_totp.get('request_key')
 
-        # पायरी ३: लॉगिन पिन व्हॅलिडेट करणे
+        # ४. लॉगिन पिन व्हॅलिडेट करणे
         payload_pin = {"client_id": client_id, "request_key": request_key, "pin": pin}
         res_pin = requests.post("https://fyers.in", json=payload_pin, headers=headers).json()
         if res_pin.get('s') != 'ok':
@@ -54,7 +55,7 @@ def get_automated_access_token():
             
         access_token_temp = res_pin.get('data', {}).get('access_token')
 
-        # पायरी ४: ओ-ऑथ (OAuth) ऑथोरायझेशन链 लिंक मिळवणे
+        # ५. ओ-ऑथ (OAuth) ऑथोरायझेशन लिंक मिळवणे
         oauth_headers = {'Authorization': f"Bearer {access_token_temp}", 'Content-Type': 'application/json', 'User-Agent': headers['User-Agent']}
         oauth_payload = {"client_id": client_id, "redirect_uri": redirect_uri, "response_type": "code", "state": "sample_state"}
         res_oauth = requests.post("https://fyers.in", json=oauth_payload, headers=oauth_headers).json()
@@ -64,16 +65,16 @@ def get_automated_access_token():
             print(f"❌ पायरी ४ (OAuth Error): ऑथ कोड मिळाला नाही. फियर्स रिस्पॉन्स -> {res_oauth}")
             return None
 
-        # पायरी ४.५: स्ट्रिंग स्प्लिट करून ऑथ कोड काढणे
+        # ६. स्ट्रिंग स्प्लिट करून ऑथ कोड काढणे
         try:
             url_parts = target_url.split('auth_code=')
             auth_code = url_parts[1].split('&')[0]
-            print(f"🔍 ऑथ कोड (Auth Code) मिळाला.")
+            print(f"🔍 ऑथ कोड (Auth Code) यशस्वीरित्या मिळाला.")
         except Exception as e_split:
             print(f"❌ ऑथ कोड स्प्लिट करताना एरर आली: {e_split} | URL: {target_url}")
             return None
 
-        # ✅ FIX: Use fyersModel.SessionModel to create the daily authorization session handler
+        # ७. फायर्स SDK चा वापर करून फायनल ॲक्सेस टोकन मिळवणे
         fyers_session = fyersModel.SessionModel(
             client_id=client_id, secret_key=secret_key,
             redirect_uri=redirect_uri, response_type="code"
@@ -91,7 +92,7 @@ def get_automated_access_token():
         print(f"❌ सिस्टीम ऑटोमेशन मध्ये अडथळा: {e}")
         return None
 
-# टोकन जनरेशन सुरू करा
+# टोकन जनरेशन रन करा
 access_token = get_automated_access_token()
 
 if not access_token:
